@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+  <title>Prode Mundial 2026</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background: #0f172a; color: #e2e8f0; font-family: system-ui, sans-serif; margin: 0; }
+    .card { background: #1e293b; border-radius: 14px; }
+    .input { background: #0f172a; border: 1px solid #334155; border-radius: 10px; color: #e2e8f0; padding: 12px 16px; width: 100%; font-size: 16px; outline: none; box-sizing: border-box; }
+    .input:focus { border-color: #22c55e; }
+    .btn-green { background: #16a34a; color: white; border-radius: 10px; padding: 14px; width: 100%; font-size: 16px; font-weight: 600; border: none; cursor: pointer; }
+    .btn-green:disabled { opacity: .6; }
+    .btn-outline { background: transparent; border: 1.5px solid #334155; color: #e2e8f0; border-radius: 10px; padding: 14px; width: 100%; font-size: 16px; font-weight: 600; cursor: pointer; }
+    .group-card { background: #1e293b; border-radius: 14px; padding: 16px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; border: 1px solid #334155; transition: border-color .2s; }
+    .group-card:hover { border-color: #22c55e; }
+    .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 50; display: flex; align-items: flex-end; padding: 0; }
+    .modal { background: #1e293b; border-radius: 20px 20px 0 0; padding: 24px; width: 100%; max-width: 500px; margin: 0 auto; }
+    .error { background: #450a0a; border: 1px solid #dc2626; color: #fca5a5; border-radius: 8px; padding: 10px 14px; font-size: 14px; }
+    .badge { background: #0f172a; color: #94a3b8; border-radius: 20px; padding: 3px 10px; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <div style="background:#1e293b; padding:16px 20px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:10; border-bottom:1px solid #334155;">
+    <div style="display:flex; align-items:center; gap:10px;">
+      <span style="font-size:24px;">⚽</span>
+      <span style="font-weight:700; font-size:17px;">Prode 2026</span>
+    </div>
+    <div style="display:flex; align-items:center; gap:12px;">
+      <span id="username-display" style="color:#94a3b8; font-size:14px;"></span>
+      <button onclick="logout()" style="background:transparent; border:none; color:#64748b; cursor:pointer; font-size:13px; padding:6px 10px; border-radius:8px; border:1px solid #334155;">Salir</button>
+    </div>
+  </div>
+
+  <!-- Content -->
+  <div style="padding:20px; max-width:500px; margin:0 auto;">
+    <!-- Actions -->
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:28px;">
+      <button class="btn-green" onclick="showCreateModal()">+ Crear grupo</button>
+      <button class="btn-outline" onclick="showJoinModal()">🔗 Unirse</button>
+    </div>
+
+    <!-- Matches shortcut -->
+    <div onclick="window.location.href='/app/matches'" style="background:#1e293b; border-radius:14px; padding:16px; margin-bottom:28px; cursor:pointer; border:1px solid #334155; display:flex; align-items:center; justify-content:space-between;">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <span style="font-size:28px;">📅</span>
+        <div>
+          <div style="font-weight:600;">Ver todos los partidos</div>
+          <div style="font-size:13px; color:#64748b;">Mundial 2026</div>
+        </div>
+      </div>
+      <span style="color:#64748b;">›</span>
+    </div>
+
+    <!-- Groups list -->
+    <div style="margin-bottom:12px; display:flex; align-items:center; justify-content:space-between;">
+      <h2 style="font-weight:700; font-size:18px;">Mis grupos</h2>
+      <span id="groups-count" style="color:#64748b; font-size:14px;"></span>
+    </div>
+
+    <div id="groups-list">
+      <div style="text-align:center; padding:40px; color:#64748b;">
+        <div style="font-size:40px; margin-bottom:8px;">🏆</div>
+        <p>Cargando grupos...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Crear Grupo -->
+  <div id="modal-create" class="modal-bg" style="display:none;" onclick="if(event.target===this)closeModals()">
+    <div class="modal">
+      <h3 style="font-weight:700; font-size:18px; margin-bottom:20px;">Crear grupo</h3>
+      <div id="create-error" class="error" style="display:none; margin-bottom:14px;"></div>
+      <label style="font-size:14px; color:#94a3b8; display:block; margin-bottom:6px;">Nombre del grupo</label>
+      <input class="input" id="group-name" placeholder="ej: Los Cracks del Barrio" maxlength="50" style="margin-bottom:20px;"/>
+      <button class="btn-green" id="btn-create" onclick="createGroup()">Crear</button>
+      <button class="btn-outline" onclick="closeModals()" style="margin-top:10px;">Cancelar</button>
+    </div>
+  </div>
+
+  <!-- Modal Unirse -->
+  <div id="modal-join" class="modal-bg" style="display:none;" onclick="if(event.target===this)closeModals()">
+    <div class="modal">
+      <h3 style="font-weight:700; font-size:18px; margin-bottom:20px;">Unirse a un grupo</h3>
+      <div id="join-error" class="error" style="display:none; margin-bottom:14px;"></div>
+      <label style="font-size:14px; color:#94a3b8; display:block; margin-bottom:6px;">Código de invitación</label>
+      <input class="input" id="invite-code" placeholder="ej: ABC123" maxlength="6" style="text-transform:uppercase; letter-spacing:4px; font-size:20px; text-align:center; margin-bottom:20px;"/>
+      <button class="btn-green" id="btn-join" onclick="joinGroup()">Unirse</button>
+      <button class="btn-outline" onclick="closeModals()" style="margin-top:10px;">Cancelar</button>
+    </div>
+  </div>
+
+  <script>
+    const token = localStorage.getItem('prode_token');
+    const user = JSON.parse(localStorage.getItem('prode_user') || '{}');
+    if (!token) window.location.href = '/';
+
+    document.getElementById('username-display').textContent = user.username || '';
+
+    function logout() {
+      localStorage.removeItem('prode_token');
+      localStorage.removeItem('prode_user');
+      window.location.href = '/';
+    }
+
+    async function api(url, opts = {}) {
+      const r = await fetch(url, {
+        ...opts,
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, ...(opts.headers || {}) }
+      });
+      if (r.status === 401) { logout(); return null; }
+      return r;
+    }
+
+    async function loadGroups() {
+      const r = await api('/api/groups');
+      if (!r) return;
+      const groups = await r.json();
+      const el = document.getElementById('groups-list');
+      document.getElementById('groups-count').textContent = `${groups.length} grupo${groups.length !== 1 ? 's' : ''}`;
+
+      if (!groups.length) {
+        el.innerHTML = `<div style="text-align:center; padding:40px; color:#64748b;">
+          <div style="font-size:40px; margin-bottom:8px;">🏆</div>
+          <p>Todavía no tenés grupos.</p>
+          <p style="font-size:14px; margin-top:4px;">Creá uno o pedile el código a un amigo.</p>
+        </div>`;
+        return;
+      }
+
+      el.innerHTML = groups.map(g => `
+        <div class="group-card" onclick="window.location.href='/app/group/${g.id}'" style="margin-bottom:12px;">
+          <div>
+            <div style="font-weight:700; font-size:16px; margin-bottom:4px;">${escHtml(g.name)}</div>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <span class="badge">👥 ${g.member_count} miembros</span>
+              <span class="badge" style="letter-spacing:2px; font-family:monospace;">${g.invite_code}</span>
+              ${g.is_creator ? '<span class="badge" style="color:#22c55e;">Admin</span>' : ''}
+            </div>
+          </div>
+          <span style="color:#64748b; font-size:20px;">›</span>
+        </div>
+      `).join('');
+    }
+
+    function showCreateModal() {
+      document.getElementById('modal-create').style.display = 'flex';
+      document.getElementById('create-error').style.display = 'none';
+      document.getElementById('group-name').value = '';
+      setTimeout(() => document.getElementById('group-name').focus(), 100);
+    }
+
+    function showJoinModal() {
+      document.getElementById('modal-join').style.display = 'flex';
+      document.getElementById('join-error').style.display = 'none';
+      document.getElementById('invite-code').value = '';
+      setTimeout(() => document.getElementById('invite-code').focus(), 100);
+    }
+
+    function closeModals() {
+      document.getElementById('modal-create').style.display = 'none';
+      document.getElementById('modal-join').style.display = 'none';
+    }
+
+    async function createGroup() {
+      const name = document.getElementById('group-name').value.trim();
+      if (!name) return;
+      const btn = document.getElementById('btn-create');
+      btn.disabled = true; btn.textContent = 'Creando...';
+      document.getElementById('create-error').style.display = 'none';
+      const r = await api('/api/groups', { method: 'POST', body: JSON.stringify({ name }) });
+      if (!r) return;
+      const data = await r.json();
+      if (!r.ok) {
+        document.getElementById('create-error').textContent = data.detail;
+        document.getElementById('create-error').style.display = 'block';
+      } else {
+        closeModals();
+        window.location.href = `/app/group/${data.id}`;
+      }
+      btn.disabled = false; btn.textContent = 'Crear';
+    }
+
+    async function joinGroup() {
+      const code = document.getElementById('invite-code').value.trim().toUpperCase();
+      if (code.length < 6) return;
+      const btn = document.getElementById('btn-join');
+      btn.disabled = true; btn.textContent = 'Uniéndose...';
+      document.getElementById('join-error').style.display = 'none';
+      const r = await api('/api/groups/join', { method: 'POST', body: JSON.stringify({ invite_code: code }) });
+      if (!r) return;
+      const data = await r.json();
+      if (!r.ok) {
+        document.getElementById('join-error').textContent = data.detail;
+        document.getElementById('join-error').style.display = 'block';
+      } else {
+        closeModals();
+        window.location.href = `/app/group/${data.id}`;
+      }
+      btn.disabled = false; btn.textContent = 'Unirse';
+    }
+
+    document.getElementById('invite-code').addEventListener('input', e => {
+      e.target.value = e.target.value.toUpperCase();
+    });
+
+    function escHtml(s) {
+      return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    loadGroups();
+  </script>
+</body>
+</html>

@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+  <title>Grupo - Prode 2026</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background: #0f172a; color: #e2e8f0; font-family: system-ui, sans-serif; margin: 0; }
+    .tab-btn { flex: 1; padding: 10px; border-radius: 8px; border: none; background: transparent; color: #94a3b8; font-weight: 600; cursor: pointer; font-size: 15px; }
+    .tab-btn.active { background: #16a34a; color: white; }
+    .match-card { background: #1e293b; border-radius: 14px; padding: 16px; margin-bottom: 10px; border: 1px solid #334155; cursor: pointer; transition: all .2s; }
+    .match-card:hover { border-color: #22c55e; background: #243447; }
+    .stage-header { color: #f59e0b; font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin: 20px 0 10px; padding: 6px 12px; background: #1a1f2e; border-left: 3px solid #f59e0b; border-radius: 0 6px 6px 0; }
+    .flag-img { width: 28px; height: 19px; border-radius: 3px; object-fit: cover; box-shadow: 0 1px 4px rgba(0,0,0,.5); flex-shrink: 0; }
+    .flag-img-lg { width: 48px; height: 32px; border-radius: 4px; object-fit: cover; box-shadow: 0 2px 8px rgba(0,0,0,.5); }
+    .pred-badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+    .pred-home { background: #1e3a5f; color: #93c5fd; }
+    .pred-away { background: #3d1a1a; color: #fca5a5; }
+    .pred-draw { background: #2d2d0f; color: #fef08a; }
+    .pred-correct { background: #14532d; color: #86efac; }
+    .pred-wrong { background: #450a0a; color: #fca5a5; }
+    .no-pred { background: #1e293b; border: 1px dashed #475569; color: #64748b; }
+    .rank-row { background: #1e293b; border-radius: 12px; padding: 14px 16px; margin-bottom: 8px; display: flex; align-items: center; gap: 14px; }
+    .rank-pos { font-size: 20px; font-weight: 800; width: 32px; text-align: center; }
+    .pos-1 { color: #f59e0b; }
+    .pos-2 { color: #94a3b8; }
+    .pos-3 { color: #b45309; }
+    .share-code { background: #0f172a; border: 1px solid #334155; border-radius: 10px; padding: 10px 16px; font-family: monospace; font-size: 22px; letter-spacing: 6px; text-align: center; color: #22c55e; font-weight: 700; cursor: pointer; }
+    .status-live { background: #dc2626; color: white; border-radius: 4px; padding: 2px 6px; font-size: 11px; font-weight: 700; }
+    .status-finished { color: #64748b; font-size: 12px; }
+    .copy-toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #16a34a; color: white; padding: 10px 20px; border-radius: 10px; font-weight: 600; z-index: 100; opacity: 0; transition: opacity .3s; }
+  </style>
+</head>
+<body>
+  <div id="copy-toast" class="copy-toast">¡Código copiado! 📋</div>
+
+  <!-- Header -->
+  <div style="background:#1e293b; padding:14px 20px; display:flex; align-items:center; gap:14px; position:sticky; top:0; z-index:10; border-bottom:1px solid #334155;">
+    <button onclick="window.location.href='/app'" style="background:transparent; border:none; color:#94a3b8; cursor:pointer; font-size:22px; padding:0; line-height:1;">‹</button>
+    <div style="flex:1;">
+      <div id="group-name" style="font-weight:700; font-size:17px;">Cargando...</div>
+      <div id="group-members-count" style="font-size:13px; color:#64748b;"></div>
+    </div>
+    <button onclick="shareGroup()" style="background:#1e3a5f; border:none; color:#93c5fd; border-radius:8px; padding:8px 14px; font-size:13px; font-weight:600; cursor:pointer;">Invitar 🔗</button>
+  </div>
+
+  <div style="padding:20px; max-width:500px; margin:0 auto;">
+    <!-- Invite code -->
+    <div style="margin-bottom:20px;">
+      <div style="font-size:13px; color:#64748b; margin-bottom:6px; text-align:center;">Código de invitación</div>
+      <div class="share-code" id="invite-code-display" onclick="copyCode()">------</div>
+      <div style="font-size:12px; color:#64748b; text-align:center; margin-top:6px;">Toca para copiar</div>
+    </div>
+
+    <!-- Tabs -->
+    <div style="display:flex; background:#0f172a; border-radius:10px; padding:4px; margin-bottom:20px;">
+      <button class="tab-btn active" id="tab-matches" onclick="switchTab('matches')">Partidos</button>
+      <button class="tab-btn" id="tab-ranking" onclick="switchTab('ranking')">Ranking</button>
+    </div>
+
+    <!-- Partidos Tab -->
+    <div id="content-matches">
+      <div id="matches-list">
+        <div style="text-align:center; padding:40px; color:#64748b;">Cargando partidos...</div>
+      </div>
+    </div>
+
+    <!-- Ranking Tab -->
+    <div id="content-ranking" style="display:none;">
+      <div id="ranking-list">
+        <div style="text-align:center; padding:40px; color:#64748b;">Cargando ranking...</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const token = localStorage.getItem('prode_token');
+    const user = JSON.parse(localStorage.getItem('prode_user') || '{}');
+    if (!token) window.location.href = '/';
+
+    const groupId = parseInt(window.location.pathname.split('/').pop());
+    let inviteCode = '';
+    let groupMatches = [];
+    let myPredictions = {};
+
+    async function api(url, opts = {}) {
+      const r = await fetch(url, {
+        ...opts,
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, ...(opts.headers || {}) }
+      });
+      if (r.status === 401) { window.location.href = '/'; return null; }
+      return r;
+    }
+
+    function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+    function fmtDate(iso) {
+      if (!iso) return '';
+      const d = new Date(iso + (iso.endsWith('Z') ? '' : 'Z'));
+      return d.toLocaleDateString('es-AR', {weekday:'short', day:'numeric', month:'short', timeZone:'America/Argentina/Buenos_Aires'})
+        + ' ' + d.toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit', timeZone:'America/Argentina/Buenos_Aires'});
+    }
+
+    function fmtStage(s) {
+      if (s.startsWith('GRUPO_')) return 'Grupo ' + s.replace('GRUPO_','');
+      const map = {OCTAVOS:'Octavos de Final',CUARTOS:'Cuartos de Final',SEMIFINAL:'Semifinales',TERCER_PUESTO:'Tercer Puesto',FINAL:'Final',GRUPOS:'Fase de Grupos'};
+      return map[s] || s;
+    }
+
+    function predLabel(pred) {
+      if (!pred) return '';
+      if (pred === 'HOME') return 'Local';
+      if (pred === 'AWAY') return 'Visitante';
+      return 'Empate';
+    }
+
+    function predClass(pred, isCorrect, status) {
+      if (isCorrect === true) return 'pred-correct';
+      if (isCorrect === false) return 'pred-wrong';
+      if (pred === 'HOME') return 'pred-home';
+      if (pred === 'AWAY') return 'pred-away';
+      if (pred === 'DRAW') return 'pred-draw';
+      return 'no-pred';
+    }
+
+    async function loadGroup() {
+      const r = await api(`/api/groups/${groupId}`);
+      if (!r) return;
+      const g = await r.json();
+      document.getElementById('group-name').textContent = g.name;
+      document.getElementById('group-members-count').textContent = `${g.members.length} miembro${g.members.length !== 1 ? 's' : ''}`;
+      inviteCode = g.invite_code;
+      document.getElementById('invite-code-display').textContent = g.invite_code;
+    }
+
+    async function loadMatches() {
+      const [mr, pr] = await Promise.all([
+        api('/api/matches'),
+        api(`/api/predictions?group_id=${groupId}`)
+      ]);
+      if (!mr || !pr) return;
+      groupMatches = await mr.json();
+      const preds = await pr.json();
+      myPredictions = {};
+      preds.forEach(p => { myPredictions[p.match_id] = p; });
+      renderMatches();
+    }
+
+    function flagImg(code, name) {
+      if (!code) return `<span style="font-size:20px;">🏴</span>`;
+      return `<img src="https://flagcdn.com/w56/${code}.png" alt="${escHtml(name)}" class="flag-img" onerror="this.outerHTML='<span>🏴</span>'">`;
+    }
+
+    function renderMatches() {
+      const el = document.getElementById('matches-list');
+      if (!groupMatches.length) {
+        el.innerHTML = `<div style="text-align:center; padding:40px; color:#64748b;">
+          <div style="font-size:40px; margin-bottom:8px;">⏳</div>
+          <p>No hay partidos cargados todavía.</p>
+        </div>`;
+        return;
+      }
+
+      const byStage = {};
+      const stageOrder = [];
+      groupMatches.forEach(m => {
+        if (!byStage[m.stage]) { byStage[m.stage] = []; stageOrder.push(m.stage); }
+        byStage[m.stage].push(m);
+      });
+
+      let html = '';
+      stageOrder.forEach(stage => {
+        html += `<div class="stage-header">${escHtml(fmtStage(stage))}</div>`;
+        byStage[stage].forEach(m => {
+          const pred = myPredictions[m.id];
+          const canPredict = m.status === 'SCHEDULED';
+          const predText = pred ? predLabel(pred.prediction) : (canPredict ? 'Sin pronóstico' : 'No pronosticaste');
+          const predCls = pred ? predClass(pred.prediction, pred.is_correct, m.status) : 'no-pred';
+          const isFinished = m.status === 'FINISHED';
+          const isLive = m.status === 'LIVE';
+          const score = isFinished
+            ? `<div style="font-size:18px; font-weight:800; color:#f1f5f9; line-height:1;">${m.home_score} - ${m.away_score}</div>`
+            : isLive
+            ? `<div style="font-size:18px; font-weight:800; color:#ef4444; line-height:1;">${m.home_score ?? 0} - ${m.away_score ?? 0}</div>`
+            : '';
+          const statusBadge = isLive
+            ? '<span class="status-live">EN VIVO</span>'
+            : isFinished ? `<span class="status-finished">Final</span>` : '';
+
+          const cardBorder = pred?.is_correct === true ? 'border-color:#22c55e;'
+            : pred?.is_correct === false ? 'border-color:#ef4444;' : '';
+
+          html += `<div class="match-card" style="${cardBorder}" onclick="${canPredict ? `window.location.href='/app/predict/${m.id}?group=${groupId}'` : ''}">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+              <span style="font-size:12px; color:#64748b;">${fmtDate(m.match_date)}</span>
+              ${statusBadge}
+            </div>
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+              <div style="display:flex; align-items:center; gap:8px; flex:1; min-width:0;">
+                ${flagImg(m.home_flag, m.home_team)}
+                <span style="font-weight:700; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escHtml(m.home_team)}</span>
+              </div>
+              <div style="padding:0 8px; text-align:center; min-width:50px; flex-shrink:0;">
+                ${score || '<span style="color:#475569; font-size:13px; font-weight:600;">VS</span>'}
+              </div>
+              <div style="display:flex; align-items:center; gap:8px; flex:1; justify-content:flex-end; min-width:0;">
+                <span style="font-weight:700; font-size:14px; text-align:right; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escHtml(m.away_team)}</span>
+                ${flagImg(m.away_flag, m.away_team)}
+              </div>
+            </div>
+            <div style="margin-top:10px; display:flex; align-items:center; justify-content:space-between;">
+              <span class="pred-badge ${predCls}">${predText}</span>
+              ${canPredict ? '<span style="color:#22c55e; font-size:13px; font-weight:600;">Pronosticar ›</span>' : ''}
+            </div>
+          </div>`;
+        });
+      });
+
+      el.innerHTML = html;
+    }
+
+    async function loadRanking() {
+      const r = await api(`/api/rankings/${groupId}`);
+      if (!r) return;
+      const ranking = await r.json();
+      const el = document.getElementById('ranking-list');
+
+      if (!ranking.length) {
+        el.innerHTML = `<div style="text-align:center; padding:40px; color:#64748b;">Sin datos aún.</div>`;
+        return;
+      }
+
+      const medals = ['🥇','🥈','🥉'];
+      const posCls = ['pos-1','pos-2','pos-3'];
+
+      el.innerHTML = ranking.map((r, i) => `
+        <div class="rank-row" style="${r.user_id === user.id ? 'border:1px solid #22c55e;' : ''}">
+          <div class="rank-pos ${posCls[i] || ''}">${medals[i] || r.position}</div>
+          <div style="flex:1;">
+            <div style="font-weight:700; ${r.user_id === user.id ? 'color:#22c55e;' : ''}">${escHtml(r.username)} ${r.user_id === user.id ? '(vos)' : ''}</div>
+            <div style="font-size:12px; color:#64748b;">${r.predictions_made} pronósticos</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:22px; font-weight:800;">${r.total_points}</div>
+            <div style="font-size:11px; color:#64748b;">${r.base_points} + ${r.bonus_points}⭐</div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function switchTab(tab) {
+      document.getElementById('content-matches').style.display = tab === 'matches' ? '' : 'none';
+      document.getElementById('content-ranking').style.display = tab === 'ranking' ? '' : 'none';
+      document.getElementById('tab-matches').className = 'tab-btn' + (tab === 'matches' ? ' active' : '');
+      document.getElementById('tab-ranking').className = 'tab-btn' + (tab === 'ranking' ? ' active' : '');
+      if (tab === 'ranking') loadRanking();
+    }
+
+    function copyCode() {
+      navigator.clipboard.writeText(inviteCode).catch(() => {});
+      const t = document.getElementById('copy-toast');
+      t.style.opacity = '1';
+      setTimeout(() => { t.style.opacity = '0'; }, 2000);
+    }
+
+    function shareGroup() {
+      const url = window.location.origin + '/app';
+      const msg = `¡Unite a mi grupo de prode del Mundial 2026! Código: ${inviteCode}\n${url}`;
+      if (navigator.share) {
+        navigator.share({ title: 'Prode Mundial 2026', text: msg });
+      } else {
+        navigator.clipboard.writeText(msg).catch(() => {});
+        const t = document.getElementById('copy-toast');
+        t.style.opacity = '1';
+        setTimeout(() => { t.style.opacity = '0'; }, 2000);
+      }
+    }
+
+    loadGroup();
+    loadMatches();
+  </script>
+</body>
+</html>

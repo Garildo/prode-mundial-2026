@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+  <title>Pronosticar - Prode 2026</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background: #0f172a; color: #e2e8f0; font-family: system-ui, sans-serif; margin: 0; }
+    .pred-option { background: #1e293b; border: 2px solid #334155; border-radius: 16px; padding: 20px 12px; cursor: pointer; text-align: center; transition: all .2s; flex: 1; }
+    .pred-option:hover { border-color: #475569; }
+    .pred-option.selected-home { border-color: #3b82f6; background: #1e3a5f; }
+    .pred-option.selected-draw { border-color: #eab308; background: #2d2d0f; }
+    .pred-option.selected-away { border-color: #ef4444; background: #3d1a1a; }
+    .btn-confirm { background: #16a34a; color: white; border-radius: 12px; padding: 16px; width: 100%; font-size: 17px; font-weight: 700; border: none; cursor: pointer; transition: background .2s; }
+    .btn-confirm:hover { background: #15803d; }
+    .btn-confirm:disabled { opacity: .5; cursor: not-allowed; }
+    .error { background: #450a0a; border: 1px solid #dc2626; color: #fca5a5; border-radius: 10px; padding: 12px; }
+    .success { background: #14532d; border: 1px solid #16a34a; color: #86efac; border-radius: 10px; padding: 12px; }
+    .locked { background: #1e293b; border: 1px solid #475569; border-radius: 12px; padding: 16px; text-align: center; color: #94a3b8; }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <div style="background:#1e293b; padding:14px 20px; display:flex; align-items:center; gap:14px; border-bottom:1px solid #334155;">
+    <button id="back-btn" style="background:transparent; border:none; color:#94a3b8; cursor:pointer; font-size:22px; padding:0; line-height:1;">‹</button>
+    <span style="font-weight:700; font-size:17px;">Pronosticar</span>
+  </div>
+
+  <div style="padding:20px; max-width:460px; margin:0 auto;">
+
+    <!-- Match info -->
+    <div style="background:#1e293b; border-radius:16px; padding:24px 20px; margin-bottom:24px; text-align:center;">
+      <div id="stage-label" style="font-size:13px; color:#f59e0b; font-weight:700; letter-spacing:.5px; margin-bottom:16px;">---</div>
+
+      <div style="display:flex; align-items:center; justify-content:center; gap:16px;">
+        <div style="flex:1; text-align:center;">
+          <div style="margin-bottom:10px; display:flex; justify-content:center;">
+            <img id="home-flag" src="" alt="" style="width:72px; height:48px; border-radius:5px; object-fit:cover; box-shadow:0 3px 12px rgba(0,0,0,.5); display:none;">
+          </div>
+          <div id="home-team" style="font-weight:700; font-size:15px; line-height:1.3;">---</div>
+        </div>
+        <div style="color:#334155; font-size:22px; font-weight:800; padding:0 6px; flex-shrink:0;">VS</div>
+        <div style="flex:1; text-align:center;">
+          <div style="margin-bottom:10px; display:flex; justify-content:center;">
+            <img id="away-flag" src="" alt="" style="width:72px; height:48px; border-radius:5px; object-fit:cover; box-shadow:0 3px 12px rgba(0,0,0,.5); display:none;">
+          </div>
+          <div id="away-team" style="font-weight:700; font-size:15px; line-height:1.3;">---</div>
+        </div>
+      </div>
+
+      <div id="match-date" style="margin-top:16px; font-size:14px; color:#64748b;">---</div>
+    </div>
+
+    <!-- Message area -->
+    <div id="msg-area" style="margin-bottom:16px; display:none;"></div>
+
+    <!-- Prediction options -->
+    <div id="pred-area">
+      <div style="font-size:15px; color:#94a3b8; text-align:center; margin-bottom:16px; font-weight:600;">¿Quién gana?</div>
+      <div style="display:flex; gap:10px; margin-bottom:24px;">
+        <div class="pred-option" id="opt-home" onclick="selectPred('HOME')">
+          <div style="margin-bottom:8px; display:flex; justify-content:center; min-height:34px; align-items:center;">
+            <img id="home-flag-opt" src="" alt="" style="width:48px; height:32px; border-radius:3px; object-fit:cover; box-shadow:0 1px 6px rgba(0,0,0,.4); display:none;">
+          </div>
+          <div id="home-team-opt" style="font-weight:700; font-size:12px; line-height:1.3;">Local</div>
+        </div>
+        <div class="pred-option" id="opt-draw" onclick="selectPred('DRAW')">
+          <div style="font-size:32px; margin-bottom:8px; min-height:34px; display:flex; align-items:center; justify-content:center;">🤝</div>
+          <div style="font-weight:700; font-size:12px;">Empate</div>
+        </div>
+        <div class="pred-option" id="opt-away" onclick="selectPred('AWAY')">
+          <div style="margin-bottom:8px; display:flex; justify-content:center; min-height:34px; align-items:center;">
+            <img id="away-flag-opt" src="" alt="" style="width:48px; height:32px; border-radius:3px; object-fit:cover; box-shadow:0 1px 6px rgba(0,0,0,.4); display:none;">
+          </div>
+          <div id="away-team-opt" style="font-weight:700; font-size:12px; line-height:1.3;">Visitante</div>
+        </div>
+      </div>
+
+      <button class="btn-confirm" id="btn-confirm" onclick="savePrediction()" disabled>Confirmar pronóstico</button>
+    </div>
+  </div>
+
+  <script>
+    const token = localStorage.getItem('prode_token');
+    if (!token) window.location.href = '/';
+
+    const pathParts = window.location.pathname.split('/');
+    const matchId = parseInt(pathParts[pathParts.length - 1]);
+    const params = new URLSearchParams(window.location.search);
+    const groupId = params.get('group');
+
+    document.getElementById('back-btn').onclick = () => {
+      window.location.href = groupId ? `/app/group/${groupId}` : '/app';
+    };
+
+    let selected = null;
+
+    function fmtDate(iso) {
+      if (!iso) return '';
+      const d = new Date(iso + (iso.endsWith('Z') ? '' : 'Z'));
+      return d.toLocaleDateString('es-AR', {weekday:'long', day:'numeric', month:'long', timeZone:'America/Argentina/Buenos_Aires'})
+        + ' a las ' + d.toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit', timeZone:'America/Argentina/Buenos_Aires'}) + 'hs';
+    }
+
+    function fmtStage(s) {
+      if (s.startsWith('GRUPO_')) return 'Grupo ' + s.replace('GRUPO_','');
+      const map = {OCTAVOS:'Octavos de Final',CUARTOS:'Cuartos de Final',SEMIFINAL:'Semifinales',TERCER_PUESTO:'Tercer Puesto',FINAL:'Final',GRUPOS:'Fase de Grupos'};
+      return map[s] || s;
+    }
+
+    function selectPred(val) {
+      selected = val;
+      ['HOME','DRAW','AWAY'].forEach(v => {
+        const el = document.getElementById(`opt-${v === 'HOME' ? 'home' : v === 'AWAY' ? 'away' : 'draw'}`);
+        el.className = 'pred-option' + (v === val ? ` selected-${v === 'HOME' ? 'home' : v === 'AWAY' ? 'away' : 'draw'}` : '');
+      });
+      document.getElementById('btn-confirm').disabled = false;
+    }
+
+    function showMsg(msg, type) {
+      const el = document.getElementById('msg-area');
+      el.className = type === 'error' ? 'error' : 'success';
+      el.textContent = msg;
+      el.style.display = 'block';
+    }
+
+    async function api(url, opts = {}) {
+      const r = await fetch(url, {
+        ...opts,
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, ...(opts.headers || {}) }
+      });
+      if (r.status === 401) { window.location.href = '/'; return null; }
+      return r;
+    }
+
+    async function loadMatch() {
+      const r = await api(`/api/matches/${matchId}`);
+      if (!r) return;
+      const m = await r.json();
+
+      function setFlag(id, code, name) {
+        const el = document.getElementById(id);
+        if (code) {
+          el.src = `https://flagcdn.com/w80/${code}.png`;
+          el.alt = name;
+          el.style.display = '';
+        }
+      }
+
+      document.getElementById('stage-label').textContent = fmtStage(m.stage).toUpperCase();
+      setFlag('home-flag', m.home_flag, m.home_team);
+      setFlag('away-flag', m.away_flag, m.away_team);
+      setFlag('home-flag-opt', m.home_flag, m.home_team);
+      setFlag('away-flag-opt', m.away_flag, m.away_team);
+      document.getElementById('home-team').textContent = m.home_team;
+      document.getElementById('away-team').textContent = m.away_team;
+      document.getElementById('home-team-opt').textContent = m.home_team;
+      document.getElementById('away-team-opt').textContent = m.away_team;
+      document.getElementById('match-date').textContent = fmtDate(m.match_date);
+
+      if (m.status === 'LIVE' || m.status === 'FINISHED') {
+        document.getElementById('pred-area').style.display = 'none';
+        const scoreText = m.status === 'FINISHED'
+          ? `Resultado final: ${m.home_team} ${m.home_score} - ${m.away_score} ${m.away_team}`
+          : 'Partido en curso';
+        document.getElementById('msg-area').className = 'locked';
+        document.getElementById('msg-area').innerHTML = `<div style="font-size:20px; margin-bottom:6px;">🔒</div><div style="font-weight:600;">El partido ${m.status === 'FINISHED' ? 'ya terminó' : 'está en curso'}</div><div style="font-size:14px; margin-top:4px;">${scoreText}</div>`;
+        document.getElementById('msg-area').style.display = 'block';
+        return;
+      }
+
+      // Check existing prediction
+      if (groupId) {
+        const pr = await api(`/api/predictions?group_id=${groupId}`);
+        if (pr) {
+          const preds = await pr.json();
+          const existing = preds.find(p => p.match_id === matchId);
+          if (existing) {
+            selectPred(existing.prediction);
+            showMsg(`Ya tenés pronóstico: ${existing.prediction === 'HOME' ? m.home_team + ' gana' : existing.prediction === 'AWAY' ? m.away_team + ' gana' : 'Empate'}. Podés cambiarlo.`, 'success');
+          }
+        }
+      }
+    }
+
+    async function savePrediction() {
+      if (!selected) return;
+      if (!groupId) { showMsg('No se especificó el grupo. Volvé al grupo para pronosticar.', 'error'); return; }
+
+      const btn = document.getElementById('btn-confirm');
+      btn.disabled = true; btn.textContent = 'Guardando...';
+      document.getElementById('msg-area').style.display = 'none';
+
+      const r = await api('/api/predictions', {
+        method: 'POST',
+        body: JSON.stringify({ group_id: parseInt(groupId), match_id: matchId, prediction: selected })
+      });
+      if (!r) return;
+      const data = await r.json();
+
+      if (!r.ok) {
+        showMsg(data.detail || 'Error al guardar', 'error');
+        btn.disabled = false; btn.textContent = 'Confirmar pronóstico';
+      } else {
+        showMsg('¡Pronóstico guardado! ✅', 'success');
+        btn.textContent = '✓ Guardado';
+        setTimeout(() => { window.location.href = `/app/group/${groupId}`; }, 1200);
+      }
+    }
+
+    loadMatch();
+  </script>
+</body>
+</html>
