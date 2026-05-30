@@ -64,6 +64,29 @@ FLAG_MAP = {
     "jamaica": "jm", "cuba": "cu", "kenya": "ke", "ethiopia": "et",
 }
 
+TEAM_TRANSLATIONS = {
+    "Mexico": "México", "South Korea": "Corea del Sur", "Korea Republic": "Corea del Sur",
+    "South Africa": "Sudáfrica", "Czechia": "Rep. Checa", "Czech Republic": "Rep. Checa",
+    "Canada": "Canadá", "Switzerland": "Suiza", "Bosnia and Herzegovina": "Bosnia y Herzegovina",
+    "Brazil": "Brasil", "Morocco": "Marruecos", "Scotland": "Escocia", "Haiti": "Haití",
+    "United States": "Estados Unidos", "USA": "Estados Unidos",
+    "Turkey": "Turquía", "Türkiye": "Turquía",
+    "Germany": "Alemania", "Ivory Coast": "Costa de Marfil", "Côte d'Ivoire": "Costa de Marfil",
+    "Curacao": "Curazao", "Curaçao": "Curazao",
+    "Netherlands": "Países Bajos", "Japan": "Japón", "Sweden": "Suecia", "Tunisia": "Túnez",
+    "Belgium": "Bélgica", "Iran": "Irán", "Egypt": "Egipto", "New Zealand": "Nueva Zelanda",
+    "Spain": "España", "Saudi Arabia": "Arabia Saudita", "Cape Verde": "Cabo Verde",
+    "France": "Francia", "Norway": "Noruega", "Iraq": "Irak",
+    "Algeria": "Argelia", "Jordan": "Jordania",
+    "DR Congo": "Congo RD", "Congo": "Congo RD", "Uzbekistan": "Uzbekistán",
+    "England": "Inglaterra", "Croatia": "Croacia", "Panama": "Panamá",
+}
+
+
+def translate_team(name: str) -> str:
+    return TEAM_TRANSLATIONS.get(name, name)
+
+
 STAGE_LABELS = {
     "GROUP_STAGE": "Fase de Grupos",
     "ROUND_OF_32": "Octavos",
@@ -126,8 +149,10 @@ async def sync_matches(db: Session) -> dict:
     synced = 0
     for m in data.get("matches", []):
         api_id = m["id"]
-        home_team = m["homeTeam"].get("name") or m["homeTeam"].get("shortName") or "TBD"
-        away_team = m["awayTeam"].get("name") or m["awayTeam"].get("shortName") or "TBD"
+        raw_home = m["homeTeam"].get("name") or m["homeTeam"].get("shortName") or "TBD"
+        raw_away = m["awayTeam"].get("name") or m["awayTeam"].get("shortName") or "TBD"
+        home_team = translate_team(raw_home)
+        away_team = translate_team(raw_away)
 
         match_date = datetime.fromisoformat(m["utcDate"].replace("Z", "+00:00")).replace(tzinfo=None)
         stage = parse_stage(m.get("stage", "GROUP_STAGE"), m.get("group", ""))
@@ -138,8 +163,18 @@ async def sync_matches(db: Session) -> dict:
         away_score = ft.get("away")
         result = determine_result(home_score, away_score) if status == "FINISHED" and home_score is not None else None
 
+        # Buscar por api_id primero, luego por equipos+stage (para linkear registros del seed)
         existing = db.query(models.Match).filter(models.Match.api_id == api_id).first()
+        if not existing:
+            existing = db.query(models.Match).filter(
+                models.Match.home_team == home_team,
+                models.Match.away_team == away_team,
+                models.Match.stage == stage,
+            ).first()
+
         if existing:
+            existing.api_id = api_id
+            existing.match_date = match_date
             existing.status = status
             existing.home_score = home_score
             existing.away_score = away_score
