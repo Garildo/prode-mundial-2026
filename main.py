@@ -68,24 +68,24 @@ app.include_router(rankings.router)
 
 @app.get("/")
 async def page_login(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request})
+    return templates.TemplateResponse(request=request, name="login.html")
 
 
 @app.get("/app")
 async def page_home(request: Request):
-    return templates.TemplateResponse("home.html", {"request": request})
+    return templates.TemplateResponse(request=request, name="home.html")
 
 
 @app.get("/app/group/{group_id}")
 async def page_group(request: Request, group_id: int):
-    return templates.TemplateResponse("group.html", {"request": request, "group_id": group_id})
+    return templates.TemplateResponse(request=request, name="group.html")
 
 
 @app.get("/app/predict/{match_id}")
 async def page_predict(request: Request, match_id: int):
-    return templates.TemplateResponse("predict.html", {"request": request, "match_id": match_id})
+    return templates.TemplateResponse(request=request, name="predict.html")
 
 
 @app.get("/app/matches")
 async def page_matches(request: Request):
-    return templates.TemplateResponse("matches.html", {"request": request})
+    return templates.TemplateResponse(request=request, name="matches.html")
