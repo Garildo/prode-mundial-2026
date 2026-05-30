@@ -91,3 +91,8 @@ async def page_predict(request: Request, match_id: int):
 @app.get("/app/matches")
 async def page_matches(request: Request):
     return templates.TemplateResponse(request=request, name="matches.html")
+
+
+@app.get("/ping")
+async def ping():
+    return {"status": "ok"}

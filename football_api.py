@@ -15,34 +15,46 @@ SEASON = "2026"
 # Valores: código ISO alpha-2 para flagcdn.com (ej: "ar" → flagcdn.com/w40/ar.png)
 # Excepciones: naciones constitutivas de UK usan "gb-eng", "gb-sct", "gb-wls"
 FLAG_MAP = {
-    # Grupo A
-    "mexico": "mx", "south korea": "kr", "korea republic": "kr",
-    "south africa": "za", "czechia": "cz", "czech republic": "cz",
+    # Grupo A — EN + ES
+    "mexico": "mx", "méxico": "mx", "south korea": "kr", "corea del sur": "kr", "korea republic": "kr",
+    "south africa": "za", "sudáfrica": "za", "sudafrica": "za",
+    "czechia": "cz", "czech republic": "cz", "rep. checa": "cz", "república checa": "cz",
     # Grupo B
-    "canada": "ca", "switzerland": "ch", "qatar": "qa",
-    "bosnia": "ba", "bosnia and herzegovina": "ba",
+    "canada": "ca", "canadá": "ca", "switzerland": "ch", "suiza": "ch",
+    "qatar": "qa", "bosnia": "ba", "bosnia and herzegovina": "ba", "bosnia y herzegovina": "ba",
     # Grupo C
-    "brazil": "br", "morocco": "ma", "scotland": "gb-sct", "haiti": "ht",
+    "brazil": "br", "brasil": "br", "morocco": "ma", "marruecos": "ma",
+    "scotland": "gb-sct", "escocia": "gb-sct", "haiti": "ht", "haití": "ht",
     # Grupo D
-    "united states": "us", "usa": "us", "turkey": "tr", "türkiye": "tr",
+    "united states": "us", "estados unidos": "us", "usa": "us",
+    "turkey": "tr", "turquía": "tr", "turquia": "tr", "türkiye": "tr",
     "australia": "au", "paraguay": "py",
     # Grupo E
-    "germany": "de", "ecuador": "ec", "ivory coast": "ci",
-    "curacao": "cw", "curaçao": "cw",
+    "germany": "de", "alemania": "de", "ecuador": "ec",
+    "ivory coast": "ci", "costa de marfil": "ci", "curacao": "cw", "curazao": "cw", "curaçao": "cw",
     # Grupo F
-    "netherlands": "nl", "japan": "jp", "sweden": "se", "tunisia": "tn",
+    "netherlands": "nl", "países bajos": "nl", "paises bajos": "nl",
+    "japan": "jp", "japón": "jp", "japon": "jp",
+    "sweden": "se", "suecia": "se", "tunisia": "tn", "túnez": "tn", "tunez": "tn",
     # Grupo G
-    "belgium": "be", "iran": "ir", "egypt": "eg", "new zealand": "nz",
+    "belgium": "be", "bélgica": "be", "belgica": "be",
+    "iran": "ir", "irán": "ir", "egypt": "eg", "egipto": "eg",
+    "new zealand": "nz", "nueva zelanda": "nz",
     # Grupo H
-    "spain": "es", "uruguay": "uy", "saudi arabia": "sa", "cape verde": "cv",
+    "spain": "es", "españa": "es", "espana": "es",
+    "uruguay": "uy", "saudi arabia": "sa", "arabia saudita": "sa", "cape verde": "cv", "cabo verde": "cv",
     # Grupo I
-    "france": "fr", "senegal": "sn", "norway": "no", "iraq": "iq",
+    "france": "fr", "francia": "fr", "senegal": "sn",
+    "norway": "no", "noruega": "no", "iraq": "iq", "irak": "iq",
     # Grupo J
-    "argentina": "ar", "austria": "at", "algeria": "dz", "jordan": "jo",
+    "argentina": "ar", "austria": "at", "algeria": "dz", "argelia": "dz",
+    "jordan": "jo", "jordania": "jo",
     # Grupo K
-    "portugal": "pt", "colombia": "co", "dr congo": "cd", "congo": "cd", "uzbekistan": "uz",
+    "portugal": "pt", "colombia": "co",
+    "dr congo": "cd", "congo rd": "cd", "congo": "cd", "uzbekistan": "uz", "uzbekistán": "uz",
     # Grupo L
-    "england": "gb-eng", "croatia": "hr", "ghana": "gh", "panama": "pa",
+    "england": "gb-eng", "inglaterra": "gb-eng",
+    "croatia": "hr", "croacia": "hr", "ghana": "gh", "panama": "pa", "panamá": "pa",
     # Otros
     "italy": "it", "denmark": "dk", "poland": "pl", "serbia": "rs",
     "ukraine": "ua", "nigeria": "ng", "cameroon": "cm", "chile": "cl",

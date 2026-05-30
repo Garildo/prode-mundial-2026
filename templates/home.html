@@ -6,7 +6,15 @@
   <title>Prode Mundial 2026</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    body { background: #0f172a; color: #e2e8f0; font-family: system-ui, sans-serif; margin: 0; }
+    body {
+      background: #0f172a;
+      background-image:
+        radial-gradient(ellipse at 50% 110%, rgba(22,163,74,.18) 0%, transparent 60%),
+        radial-gradient(ellipse at 0% 40%, rgba(59,130,246,.06) 0%, transparent 50%);
+      color: #e2e8f0;
+      font-family: system-ui, sans-serif;
+      margin: 0;
+    }
     .card { background: #1e293b; border-radius: 14px; }
     .input { background: #0f172a; border: 1px solid #334155; border-radius: 10px; color: #e2e8f0; padding: 12px 16px; width: 100%; font-size: 16px; outline: none; box-sizing: border-box; }
     .input:focus { border-color: #22c55e; }
@@ -19,44 +27,58 @@
     .modal { background: #1e293b; border-radius: 20px 20px 0 0; padding: 24px; width: 100%; max-width: 500px; margin: 0 auto; }
     .error { background: #450a0a; border: 1px solid #dc2626; color: #fca5a5; border-radius: 8px; padding: 10px 14px; font-size: 14px; }
     .badge { background: #0f172a; color: #94a3b8; border-radius: 20px; padding: 3px 10px; font-size: 12px; }
+    @keyframes scrollFlags {
+      0%   { transform: translateX(0); }
+      100% { transform: translateX(-50%); }
+    }
+    .flags-track {
+      display: flex;
+      align-items: center;
+      animation: scrollFlags 55s linear infinite;
+      width: max-content;
+    }
+    .flags-track:hover { animation-play-state: paused; }
   </style>
 </head>
 <body>
   <!-- Header -->
-  <div style="background:#1e293b; padding:16px 20px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:10; border-bottom:1px solid #334155;">
-    <div style="display:flex; align-items:center; gap:10px;">
-      <span style="font-size:24px;">⚽</span>
-      <span style="font-weight:700; font-size:17px;">Prode 2026</span>
+  <div style="background:#1e293b; border-bottom:1px solid #334155; position:sticky; top:0; z-index:10;">
+    <div style="padding:14px 20px; display:flex; align-items:center; justify-content:space-between;">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span style="font-size:22px;">🏆</span>
+        <span style="font-weight:700; font-size:17px;">Prode 2026</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:12px;">
+        <span id="username-display" style="color:#94a3b8; font-size:14px;"></span>
+        <button onclick="logout()" style="background:transparent; border:none; color:#64748b; cursor:pointer; font-size:13px; padding:6px 10px; border-radius:8px; border:1px solid #334155;">Salir</button>
+      </div>
     </div>
-    <div style="display:flex; align-items:center; gap:12px;">
-      <span id="username-display" style="color:#94a3b8; font-size:14px;"></span>
-      <button onclick="logout()" style="background:transparent; border:none; color:#64748b; cursor:pointer; font-size:13px; padding:6px 10px; border-radius:8px; border:1px solid #334155;">Salir</button>
+    <!-- Franja de banderas -->
+    <div style="overflow:hidden; border-top:1px solid rgba(255,255,255,.05); padding:7px 0;">
+      <div class="flags-track" id="flags-track"></div>
     </div>
   </div>
 
   <!-- Content -->
   <div style="padding:20px; max-width:500px; margin:0 auto;">
-    <!-- Actions -->
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:28px;">
       <button class="btn-green" onclick="showCreateModal()">+ Crear grupo</button>
       <button class="btn-outline" onclick="showJoinModal()">🔗 Unirse</button>
     </div>
 
-    <!-- Matches shortcut -->
-    <div onclick="window.location.href='/app/matches'" style="background:#1e293b; border-radius:14px; padding:16px; margin-bottom:28px; cursor:pointer; border:1px solid #334155; display:flex; align-items:center; justify-content:space-between;">
+    <div onclick="window.location.href='/app/matches'" style="background:#1e293b; border-radius:14px; padding:16px; margin-bottom:28px; cursor:pointer; border:1px solid #334155; display:flex; align-items:center; justify-content:space-between; transition:border-color .2s;" onmouseover="this.style.borderColor='#22c55e'" onmouseout="this.style.borderColor='#334155'">
       <div style="display:flex; align-items:center; gap:12px;">
         <span style="font-size:28px;">📅</span>
         <div>
           <div style="font-weight:600;">Ver todos los partidos</div>
-          <div style="font-size:13px; color:#64748b;">Mundial 2026</div>
+          <div style="font-size:13px; color:#64748b;">Mundial 2026 · 72 partidos</div>
         </div>
       </div>
       <span style="color:#64748b;">›</span>
     </div>
 
-    <!-- Groups list -->
     <div style="margin-bottom:12px; display:flex; align-items:center; justify-content:space-between;">
-      <h2 style="font-weight:700; font-size:18px;">Mis grupos</h2>
+      <h2 style="font-weight:700; font-size:18px; margin:0;">Mis grupos</h2>
       <span id="groups-count" style="color:#64748b; font-size:14px;"></span>
     </div>
 
@@ -98,6 +120,13 @@
     if (!token) window.location.href = '/';
 
     document.getElementById('username-display').textContent = user.username || '';
+
+    // Generar franja de banderas
+    const FLAGS = ['mx','kr','za','cz','ca','ch','qa','ba','br','ma','gb-sct','ht','us','tr','au','py','de','ec','ci','cw','nl','jp','se','tn','be','ir','eg','nz','es','uy','sa','cv','fr','sn','no','iq','ar','at','dz','jo','pt','co','cd','uz','gb-eng','hr','gh','pa'];
+    const doubled = [...FLAGS, ...FLAGS];
+    document.getElementById('flags-track').innerHTML = doubled.map(code =>
+      `<img src="https://flagcdn.com/w40/${code}.png" style="width:38px;height:25px;border-radius:2px;margin:0 5px;object-fit:cover;opacity:.85;" loading="lazy">`
+    ).join('');
 
     function logout() {
       localStorage.removeItem('prode_token');

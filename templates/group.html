@@ -6,14 +6,12 @@
   <title>Grupo - Prode 2026</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    body { background: #0f172a; color: #e2e8f0; font-family: system-ui, sans-serif; margin: 0; }
+    body { background: #0f172a; background-image: radial-gradient(ellipse at 50% 110%, rgba(22,163,74,.15) 0%, transparent 60%); color: #e2e8f0; font-family: system-ui, sans-serif; margin: 0; }
     .tab-btn { flex: 1; padding: 10px; border-radius: 8px; border: none; background: transparent; color: #94a3b8; font-weight: 600; cursor: pointer; font-size: 15px; }
     .tab-btn.active { background: #16a34a; color: white; }
-    .match-card { background: #1e293b; border-radius: 14px; padding: 16px; margin-bottom: 10px; border: 1px solid #334155; cursor: pointer; transition: all .2s; }
-    .match-card:hover { border-color: #22c55e; background: #243447; }
+    .match-card { background: #1e293b; border-radius: 14px; padding: 16px; margin-bottom: 10px; border: 1px solid #334155; transition: border-color .2s; }
     .stage-header { color: #f59e0b; font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin: 20px 0 10px; padding: 6px 12px; background: #1a1f2e; border-left: 3px solid #f59e0b; border-radius: 0 6px 6px 0; }
     .flag-img { width: 28px; height: 19px; border-radius: 3px; object-fit: cover; box-shadow: 0 1px 4px rgba(0,0,0,.5); flex-shrink: 0; }
-    .flag-img-lg { width: 48px; height: 32px; border-radius: 4px; object-fit: cover; box-shadow: 0 2px 8px rgba(0,0,0,.5); }
     .pred-badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
     .pred-home { background: #1e3a5f; color: #93c5fd; }
     .pred-away { background: #3d1a1a; color: #fca5a5; }
@@ -23,17 +21,59 @@
     .no-pred { background: #1e293b; border: 1px dashed #475569; color: #64748b; }
     .rank-row { background: #1e293b; border-radius: 12px; padding: 14px 16px; margin-bottom: 8px; display: flex; align-items: center; gap: 14px; }
     .rank-pos { font-size: 20px; font-weight: 800; width: 32px; text-align: center; }
-    .pos-1 { color: #f59e0b; }
-    .pos-2 { color: #94a3b8; }
-    .pos-3 { color: #b45309; }
+    .pos-1 { color: #f59e0b; } .pos-2 { color: #94a3b8; } .pos-3 { color: #b45309; }
     .share-code { background: #0f172a; border: 1px solid #334155; border-radius: 10px; padding: 10px 16px; font-family: monospace; font-size: 22px; letter-spacing: 6px; text-align: center; color: #22c55e; font-weight: 700; cursor: pointer; }
     .status-live { background: #dc2626; color: white; border-radius: 4px; padding: 2px 6px; font-size: 11px; font-weight: 700; }
     .status-finished { color: #64748b; font-size: 12px; }
-    .copy-toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #16a34a; color: white; padding: 10px 20px; border-radius: 10px; font-weight: 600; z-index: 100; opacity: 0; transition: opacity .3s; }
+    /* Botones de predicción */
+    .pred-btn { border-radius: 10px; padding: 8px 4px; cursor: pointer; font-size: 11px; font-weight: 700; transition: all .2s; border: 2px solid #334155; background: #0f172a; color: #64748b; width: 100%; text-align: center; line-height: 1.4; }
+    .pred-btn:hover:not(:disabled) { border-color: #475569; color: #94a3b8; }
+    .pred-btn:disabled { opacity: .5; cursor: not-allowed; }
+    /* Guardado (sólido) */
+    .pred-btn-home { border-color: #3b82f6; background: #1e3a5f; color: #93c5fd; }
+    .pred-btn-draw { border-color: #eab308; background: #2d2d0f; color: #fef08a; }
+    .pred-btn-away { border-color: #ef4444; background: #3d1a1a; color: #fca5a5; }
+    /* Pendiente (punteado) */
+    .pred-btn-pending-home { border-color: #3b82f6; border-style: dashed; background: #162032; color: #93c5fd; }
+    .pred-btn-pending-draw { border-color: #eab308; border-style: dashed; background: #1a1a08; color: #fef08a; }
+    .pred-btn-pending-away { border-color: #ef4444; border-style: dashed; background: #220f0f; color: #fca5a5; }
+    /* Toast */
+    .toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background: #16a34a; color: white; padding: 10px 20px; border-radius: 10px; font-weight: 600; z-index: 200; opacity: 0; transition: opacity .3s; pointer-events: none; white-space: nowrap; }
+    /* Barra de confirmación flotante */
+    .confirm-bar { position: fixed; bottom: 0; left: 0; right: 0; padding: 12px 20px 20px; background: linear-gradient(transparent, #0a0f1e 35%); z-index: 50; display: none; }
   </style>
 </head>
 <body>
-  <div id="copy-toast" class="copy-toast">¡Código copiado! 📋</div>
+  <div id="toast" class="toast"></div>
+
+  <!-- Modal confirmación -->
+  <div id="confirm-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.75); z-index:150; overflow-y:auto; padding:20px; align-items:flex-start; justify-content:center;">
+    <div style="background:#1e293b; border-radius:16px; max-width:460px; width:100%; margin:0 auto; padding:24px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+        <div>
+          <div style="font-weight:700; font-size:17px;">Confirmar pronósticos</div>
+          <div style="font-size:13px; color:#64748b; margin-top:2px;"><span id="modal-count">0</span> selección(es) pendiente(s)</div>
+        </div>
+        <button onclick="closeConfirmModal()" style="background:transparent; border:none; color:#64748b; font-size:22px; cursor:pointer; padding:4px;">✕</button>
+      </div>
+
+      <div id="modal-list" style="max-height:50vh; overflow-y:auto; margin-bottom:20px;"></div>
+
+      <button id="btn-confirm-all" onclick="confirmAll()" style="width:100%; background:#16a34a; color:white; border:none; border-radius:12px; padding:14px; font-size:16px; font-weight:700; cursor:pointer; margin-bottom:10px; transition:background .2s;">
+        Guardar pronósticos
+      </button>
+      <button onclick="closeConfirmModal()" style="width:100%; background:transparent; color:#94a3b8; border:1px solid #334155; border-radius:12px; padding:12px; font-size:14px; font-weight:600; cursor:pointer;">
+        Seguir eligiendo
+      </button>
+    </div>
+  </div>
+
+  <!-- Barra flotante -->
+  <div class="confirm-bar" id="confirm-bar">
+    <button onclick="openConfirmModal()" style="width:100%; max-width:500px; display:block; margin:0 auto; background:#16a34a; color:white; border:none; border-radius:14px; padding:15px; font-size:16px; font-weight:700; cursor:pointer; box-shadow:0 4px 20px rgba(0,0,0,.5);">
+      Confirmar <span id="confirm-count">0</span> pronóstico(s) →
+    </button>
+  </div>
 
   <!-- Header -->
   <div style="background:#1e293b; padding:14px 20px; display:flex; align-items:center; gap:14px; position:sticky; top:0; z-index:10; border-bottom:1px solid #334155;">
@@ -45,7 +85,7 @@
     <button onclick="shareGroup()" style="background:#1e3a5f; border:none; color:#93c5fd; border-radius:8px; padding:8px 14px; font-size:13px; font-weight:600; cursor:pointer;">Invitar 🔗</button>
   </div>
 
-  <div style="padding:20px; max-width:500px; margin:0 auto;">
+  <div style="padding:20px; max-width:500px; margin:0 auto; padding-bottom:100px;">
     <!-- Invite code -->
     <div style="margin-bottom:20px;">
       <div style="font-size:13px; color:#64748b; margin-bottom:6px; text-align:center;">Código de invitación</div>
@@ -59,14 +99,12 @@
       <button class="tab-btn" id="tab-ranking" onclick="switchTab('ranking')">Ranking</button>
     </div>
 
-    <!-- Partidos Tab -->
     <div id="content-matches">
       <div id="matches-list">
         <div style="text-align:center; padding:40px; color:#64748b;">Cargando partidos...</div>
       </div>
     </div>
 
-    <!-- Ranking Tab -->
     <div id="content-ranking" style="display:none;">
       <div id="ranking-list">
         <div style="text-align:center; padding:40px; color:#64748b;">Cargando ranking...</div>
@@ -80,9 +118,18 @@
     if (!token) window.location.href = '/';
 
     const groupId = parseInt(window.location.pathname.split('/').pop());
+    const STORAGE_KEY = `prode_pending_g${groupId}`;
+
     let inviteCode = '';
     let groupMatches = [];
-    let myPredictions = {};
+    let myPredictions = {};  // guardados en servidor
+    let pendingPredictions = {};  // selecciones locales sin confirmar
+
+    // Cargar pendientes de localStorage
+    try {
+      const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+      Object.entries(raw).forEach(([k, v]) => { pendingPredictions[parseInt(k)] = v; });
+    } catch (_) {}
 
     async function api(url, opts = {}) {
       const r = await fetch(url, {
@@ -108,14 +155,14 @@
       return map[s] || s;
     }
 
-    function predLabel(pred) {
+    function predLabel(pred, homeTeam, awayTeam) {
       if (!pred) return '';
-      if (pred === 'HOME') return 'Local';
-      if (pred === 'AWAY') return 'Visitante';
+      if (pred === 'HOME') return homeTeam + ' gana';
+      if (pred === 'AWAY') return awayTeam + ' gana';
       return 'Empate';
     }
 
-    function predClass(pred, isCorrect, status) {
+    function predClass(pred, isCorrect) {
       if (isCorrect === true) return 'pred-correct';
       if (isCorrect === false) return 'pred-wrong';
       if (pred === 'HOME') return 'pred-home';
@@ -123,6 +170,132 @@
       if (pred === 'DRAW') return 'pred-draw';
       return 'no-pred';
     }
+
+    // Devuelve la clase CSS del botón según estado guardado/pendiente
+    function btnClass(btnVal, matchId) {
+      const saved = myPredictions[matchId]?.prediction;
+      const pending = pendingPredictions[matchId];
+      const selected = pending !== undefined ? pending : saved;
+
+      if (btnVal !== selected) return 'pred-btn';
+
+      if (pending !== undefined && pending !== saved) {
+        // Pendiente: borde punteado
+        if (btnVal === 'HOME') return 'pred-btn pred-btn-pending-home';
+        if (btnVal === 'DRAW') return 'pred-btn pred-btn-pending-draw';
+        return 'pred-btn pred-btn-pending-away';
+      }
+      // Guardado: borde sólido
+      if (btnVal === 'HOME') return 'pred-btn pred-btn-home';
+      if (btnVal === 'DRAW') return 'pred-btn pred-btn-draw';
+      return 'pred-btn pred-btn-away';
+    }
+
+    function savePendingToStorage() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(pendingPredictions));
+    }
+
+    function updateConfirmBar() {
+      const count = Object.keys(pendingPredictions).length;
+      document.getElementById('confirm-bar').style.display = count > 0 ? 'block' : 'none';
+      document.getElementById('confirm-count').textContent = count;
+    }
+
+    function selectPrediction(matchId, value) {
+      const saved = myPredictions[matchId]?.prediction;
+      if (saved === value) {
+        delete pendingPredictions[matchId];
+      } else {
+        pendingPredictions[matchId] = value;
+      }
+      savePendingToStorage();
+      refreshCardButtons(matchId);
+      updateConfirmBar();
+    }
+
+    function refreshCardButtons(matchId) {
+      const container = document.getElementById(`pred-${matchId}`);
+      if (!container) return;
+      const btns = container.querySelectorAll('button');
+      const vals = ['HOME', 'DRAW', 'AWAY'];
+      btns.forEach((btn, i) => { btn.className = btnClass(vals[i], matchId); });
+    }
+
+    // ── Modal ──────────────────────────────────────────────────────────────────
+
+    function openConfirmModal() {
+      const entries = Object.entries(pendingPredictions);
+      if (!entries.length) return;
+
+      document.getElementById('modal-count').textContent = entries.length;
+
+      const html = entries.map(([idStr, value]) => {
+        const mid = parseInt(idStr);
+        const m = groupMatches.find(x => x.id === mid);
+        if (!m) return '';
+        const label = predLabel(value, m.home_team, m.away_team);
+        const cls = value === 'HOME' ? 'pred-btn-home' : value === 'DRAW' ? 'pred-btn-draw' : 'pred-btn-away';
+        return `<div style="display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid #1e293b;">
+          <div>
+            <div style="font-size:13px; font-weight:600;">${escHtml(m.home_team)} vs ${escHtml(m.away_team)}</div>
+            <div style="font-size:11px; color:#64748b;">${escHtml(fmtStage(m.stage))}</div>
+          </div>
+          <span class="pred-badge ${cls}" style="flex-shrink:0; margin-left:10px;">${escHtml(label)}</span>
+        </div>`;
+      }).join('');
+
+      document.getElementById('modal-list').innerHTML = html;
+      const modal = document.getElementById('confirm-modal');
+      modal.style.display = 'flex';
+    }
+
+    function closeConfirmModal() {
+      document.getElementById('confirm-modal').style.display = 'none';
+    }
+
+    async function confirmAll() {
+      const predictions = Object.entries(pendingPredictions).map(([id, prediction]) => ({
+        match_id: parseInt(id), prediction
+      }));
+      if (!predictions.length) return;
+
+      const btn = document.getElementById('btn-confirm-all');
+      btn.disabled = true;
+      btn.textContent = 'Guardando...';
+
+      const r = await api('/api/predictions/batch', {
+        method: 'POST',
+        body: JSON.stringify({ group_id: groupId, predictions })
+      });
+
+      btn.disabled = false;
+      btn.textContent = 'Guardar pronósticos';
+
+      if (!r || !r.ok) {
+        showToast('❌ Error al guardar', true);
+        return;
+      }
+
+      const data = await r.json();
+
+      // Mover pendientes a guardados
+      Object.entries(pendingPredictions).forEach(([id, prediction]) => {
+        myPredictions[parseInt(id)] = { match_id: parseInt(id), prediction, is_correct: null };
+      });
+      pendingPredictions = {};
+      localStorage.removeItem(STORAGE_KEY);
+
+      closeConfirmModal();
+      updateConfirmBar();
+      renderMatches();
+
+      const msg = data.errors?.length
+        ? `✓ ${data.saved} guardados, ${data.errors.length} ya no disponibles`
+        : `✓ ${data.saved} pronóstico(s) guardado(s)`;
+      showToast(msg);
+    }
+
+    // ── Render ─────────────────────────────────────────────────────────────────
 
     async function loadGroup() {
       const r = await api(`/api/groups/${groupId}`);
@@ -144,21 +317,28 @@
       const preds = await pr.json();
       myPredictions = {};
       preds.forEach(p => { myPredictions[p.match_id] = p; });
+
+      // Limpiar pendientes de partidos que ya empezaron
+      groupMatches.forEach(m => {
+        if (m.status !== 'SCHEDULED' && pendingPredictions[m.id]) {
+          delete pendingPredictions[m.id];
+        }
+      });
+      savePendingToStorage();
+
       renderMatches();
+      updateConfirmBar();
     }
 
     function flagImg(code, name) {
-      if (!code) return `<span style="font-size:20px;">🏴</span>`;
+      if (!code) return `<span style="font-size:18px;">🏴</span>`;
       return `<img src="https://flagcdn.com/w56/${code}.png" alt="${escHtml(name)}" class="flag-img" onerror="this.outerHTML='<span>🏴</span>'">`;
     }
 
     function renderMatches() {
       const el = document.getElementById('matches-list');
       if (!groupMatches.length) {
-        el.innerHTML = `<div style="text-align:center; padding:40px; color:#64748b;">
-          <div style="font-size:40px; margin-bottom:8px;">⏳</div>
-          <p>No hay partidos cargados todavía.</p>
-        </div>`;
+        el.innerHTML = `<div style="text-align:center; padding:40px; color:#64748b;"><div style="font-size:40px; margin-bottom:8px;">⏳</div><p>No hay partidos cargados todavía.</p></div>`;
         return;
       }
 
@@ -175,15 +355,15 @@
         byStage[stage].forEach(m => {
           const pred = myPredictions[m.id];
           const canPredict = m.status === 'SCHEDULED';
-          const predText = pred ? predLabel(pred.prediction) : (canPredict ? 'Sin pronóstico' : 'No pronosticaste');
-          const predCls = pred ? predClass(pred.prediction, pred.is_correct, m.status) : 'no-pred';
           const isFinished = m.status === 'FINISHED';
           const isLive = m.status === 'LIVE';
+
           const score = isFinished
             ? `<div style="font-size:18px; font-weight:800; color:#f1f5f9; line-height:1;">${m.home_score} - ${m.away_score}</div>`
             : isLive
             ? `<div style="font-size:18px; font-weight:800; color:#ef4444; line-height:1;">${m.home_score ?? 0} - ${m.away_score ?? 0}</div>`
             : '';
+
           const statusBadge = isLive
             ? '<span class="status-live">EN VIVO</span>'
             : isFinished ? `<span class="status-finished">Final</span>` : '';
@@ -191,7 +371,37 @@
           const cardBorder = pred?.is_correct === true ? 'border-color:#22c55e;'
             : pred?.is_correct === false ? 'border-color:#ef4444;' : '';
 
-          html += `<div class="match-card" style="${cardBorder}" onclick="${canPredict ? `window.location.href='/app/predict/${m.id}?group=${groupId}'` : ''}">
+          const hFlagBtn = m.home_flag ? `<img src="https://flagcdn.com/w40/${m.home_flag}.png" style="width:32px;height:21px;border-radius:2px;object-fit:cover;margin-bottom:4px;display:block;margin-left:auto;margin-right:auto;" onerror="this.style.display='none'">` : '';
+          const aFlagBtn = m.away_flag ? `<img src="https://flagcdn.com/w40/${m.away_flag}.png" style="width:32px;height:21px;border-radius:2px;object-fit:cover;margin-bottom:4px;display:block;margin-left:auto;margin-right:auto;" onerror="this.style.display='none'">` : '';
+
+          let bottomHtml;
+          if (canPredict) {
+            bottomHtml = `
+              <div style="display:flex; gap:6px; margin-top:12px;" id="pred-${m.id}">
+                <button class="${btnClass('HOME', m.id)}" onclick="selectPrediction(${m.id}, 'HOME')" style="flex:1;">
+                  ${hFlagBtn}
+                  <div style="font-size:10px; opacity:.85; margin-bottom:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escHtml(m.home_team)}</div>
+                  <div>Gana</div>
+                </button>
+                <button class="${btnClass('DRAW', m.id)}" onclick="selectPrediction(${m.id}, 'DRAW')" style="flex:0 0 60px;">
+                  <div style="font-size:15px; line-height:1; margin-bottom:4px;">🤝</div>
+                  <div>Empate</div>
+                </button>
+                <button class="${btnClass('AWAY', m.id)}" onclick="selectPrediction(${m.id}, 'AWAY')" style="flex:1;">
+                  ${aFlagBtn}
+                  <div style="font-size:10px; opacity:.85; margin-bottom:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escHtml(m.away_team)}</div>
+                  <div>Gana</div>
+                </button>
+              </div>`;
+          } else {
+            const predText = pred
+              ? predLabel(pred.prediction, m.home_team, m.away_team)
+              : 'No pronosticaste';
+            const predCls = pred ? predClass(pred.prediction, pred.is_correct) : 'no-pred';
+            bottomHtml = `<div style="margin-top:10px;"><span class="pred-badge ${predCls}">${predText}</span></div>`;
+          }
+
+          html += `<div class="match-card" style="${cardBorder}">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
               <span style="font-size:12px; color:#64748b;">${fmtDate(m.match_date)}</span>
               ${statusBadge}
@@ -209,10 +419,7 @@
                 ${flagImg(m.away_flag, m.away_team)}
               </div>
             </div>
-            <div style="margin-top:10px; display:flex; align-items:center; justify-content:space-between;">
-              <span class="pred-badge ${predCls}">${predText}</span>
-              ${canPredict ? '<span style="color:#22c55e; font-size:13px; font-weight:600;">Pronosticar ›</span>' : ''}
-            </div>
+            ${bottomHtml}
           </div>`;
         });
       });
@@ -220,20 +427,19 @@
       el.innerHTML = html;
     }
 
+    // ── Ranking ────────────────────────────────────────────────────────────────
+
     async function loadRanking() {
       const r = await api(`/api/rankings/${groupId}`);
       if (!r) return;
       const ranking = await r.json();
       const el = document.getElementById('ranking-list');
-
       if (!ranking.length) {
         el.innerHTML = `<div style="text-align:center; padding:40px; color:#64748b;">Sin datos aún.</div>`;
         return;
       }
-
       const medals = ['🥇','🥈','🥉'];
       const posCls = ['pos-1','pos-2','pos-3'];
-
       el.innerHTML = ranking.map((r, i) => `
         <div class="rank-row" style="${r.user_id === user.id ? 'border:1px solid #22c55e;' : ''}">
           <div class="rank-pos ${posCls[i] || ''}">${medals[i] || r.position}</div>
@@ -245,9 +451,10 @@
             <div style="font-size:22px; font-weight:800;">${r.total_points}</div>
             <div style="font-size:11px; color:#64748b;">${r.base_points} + ${r.bonus_points}⭐</div>
           </div>
-        </div>
-      `).join('');
+        </div>`).join('');
     }
+
+    // ── Utils ──────────────────────────────────────────────────────────────────
 
     function switchTab(tab) {
       document.getElementById('content-matches').style.display = tab === 'matches' ? '' : 'none';
@@ -257,11 +464,17 @@
       if (tab === 'ranking') loadRanking();
     }
 
+    function showToast(msg, isError = false) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.style.background = isError ? '#dc2626' : '#16a34a';
+      t.style.opacity = '1';
+      setTimeout(() => { t.style.opacity = '0'; }, 2200);
+    }
+
     function copyCode() {
       navigator.clipboard.writeText(inviteCode).catch(() => {});
-      const t = document.getElementById('copy-toast');
-      t.style.opacity = '1';
-      setTimeout(() => { t.style.opacity = '0'; }, 2000);
+      showToast('¡Código copiado!');
     }
 
     function shareGroup() {
@@ -271,9 +484,7 @@
         navigator.share({ title: 'Prode Mundial 2026', text: msg });
       } else {
         navigator.clipboard.writeText(msg).catch(() => {});
-        const t = document.getElementById('copy-toast');
-        t.style.opacity = '1';
-        setTimeout(() => { t.style.opacity = '0'; }, 2000);
+        showToast('¡Código copiado!');
       }
     }
 

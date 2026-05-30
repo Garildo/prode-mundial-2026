@@ -6,7 +6,15 @@
   <title>Prode Mundial 2026</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    body { background: #0f172a; color: #e2e8f0; font-family: system-ui, sans-serif; }
+    body {
+      background: #0f172a;
+      background-image:
+        radial-gradient(ellipse at 50% 110%, rgba(22,163,74,.22) 0%, transparent 60%),
+        radial-gradient(ellipse at 0% 40%, rgba(59,130,246,.07) 0%, transparent 50%);
+      color: #e2e8f0;
+      font-family: system-ui, sans-serif;
+      min-height: 100vh;
+    }
     .card { background: #1e293b; border-radius: 16px; }
     .input { background: #0f172a; border: 1px solid #334155; border-radius: 10px; color: #e2e8f0; padding: 12px 16px; width: 100%; font-size: 16px; outline: none; transition: border-color .2s; }
     .input:focus { border-color: #22c55e; }
@@ -16,21 +24,37 @@
     .tab { padding: 10px 24px; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all .2s; color: #94a3b8; }
     .tab.active { background: #16a34a; color: white; }
     .error { background: #450a0a; border: 1px solid #dc2626; color: #fca5a5; border-radius: 8px; padding: 12px; font-size: 14px; }
+    @keyframes scrollFlags {
+      0%   { transform: translateX(0); }
+      100% { transform: translateX(-50%); }
+    }
+    .flags-track {
+      display: flex;
+      align-items: center;
+      animation: scrollFlags 55s linear infinite;
+      width: max-content;
+    }
+    .flags-track:hover { animation-play-state: paused; }
   </style>
 </head>
-<body class="min-h-screen flex items-center justify-center p-4">
+<body class="flex flex-col items-center justify-center p-4" style="min-height:100vh;">
+
+  <!-- Franja de banderas superior -->
+  <div style="width:100%; overflow:hidden; padding:10px 0; margin-bottom:28px; border-top:1px solid rgba(255,255,255,.06); border-bottom:1px solid rgba(255,255,255,.06);">
+    <div class="flags-track" id="flags-track"></div>
+  </div>
+
   <div style="width:100%; max-width:400px;">
 
     <!-- Header -->
     <div class="text-center mb-8">
-      <div style="font-size:56px; margin-bottom:8px;">⚽</div>
-      <h1 style="font-size:24px; font-weight:800; color:#f1f5f9;">Prode Mundial 2026</h1>
-      <p style="color:#64748b; margin-top:4px;">Jugá con tus amigos</p>
+      <div style="font-size:52px; margin-bottom:8px; filter:drop-shadow(0 0 20px rgba(234,179,8,.4));">🏆</div>
+      <h1 style="font-size:26px; font-weight:800; color:#f1f5f9; letter-spacing:-.5px;">Prode Mundial 2026</h1>
+      <p style="color:#64748b; margin-top:6px; font-size:13px;">🇺🇸 USA &nbsp;·&nbsp; 🇲🇽 México &nbsp;·&nbsp; 🇨🇦 Canadá</p>
     </div>
 
     <!-- Card -->
     <div class="card p-6">
-      <!-- Tabs -->
       <div style="display:flex; background:#0f172a; border-radius:10px; padding:4px; margin-bottom:24px;">
         <button class="tab active" style="flex:1;" id="tab-login" onclick="switchTab('login')">Iniciar Sesión</button>
         <button class="tab" style="flex:1;" id="tab-register" onclick="switchTab('register')">Registrarse</button>
@@ -38,7 +62,6 @@
 
       <div id="error-msg" class="error" style="display:none; margin-bottom:16px;"></div>
 
-      <!-- Login Form -->
       <form id="form-login" onsubmit="handleLogin(event)">
         <div style="margin-bottom:16px;">
           <label style="display:block; font-size:14px; color:#94a3b8; margin-bottom:6px;">Email</label>
@@ -51,7 +74,6 @@
         <button class="btn-green" type="submit" id="btn-login">Entrar</button>
       </form>
 
-      <!-- Register Form -->
       <form id="form-register" style="display:none;" onsubmit="handleRegister(event)">
         <div style="margin-bottom:16px;">
           <label style="display:block; font-size:14px; color:#94a3b8; margin-bottom:6px;">Email</label>
@@ -68,11 +90,19 @@
         <button class="btn-green" type="submit" id="btn-register">Crear cuenta</button>
       </form>
     </div>
+
+    <p style="text-align:center; margin-top:20px; font-size:12px; color:#334155;">⚽ 48 selecciones · 104 partidos · 1 campeón</p>
   </div>
 
   <script>
-    // Redirect if already logged in
     if (localStorage.getItem('prode_token')) window.location.href = '/app';
+
+    // Generar franja de banderas
+    const FLAGS = ['mx','kr','za','cz','ca','ch','qa','ba','br','ma','gb-sct','ht','us','tr','au','py','de','ec','ci','cw','nl','jp','se','tn','be','ir','eg','nz','es','uy','sa','cv','fr','sn','no','iq','ar','at','dz','jo','pt','co','cd','uz','gb-eng','hr','gh','pa'];
+    const doubled = [...FLAGS, ...FLAGS];
+    document.getElementById('flags-track').innerHTML = doubled.map(code =>
+      `<img src="https://flagcdn.com/w40/${code}.png" style="width:42px;height:28px;border-radius:3px;margin:0 6px;object-fit:cover;box-shadow:0 1px 4px rgba(0,0,0,.4);" loading="lazy">`
+    ).join('');
 
     function switchTab(tab) {
       document.getElementById('form-login').style.display = tab === 'login' ? '' : 'none';

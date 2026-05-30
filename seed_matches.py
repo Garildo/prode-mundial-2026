@@ -20,18 +20,18 @@ Base.metadata.create_all(bind=engine)
 
 # ── 12 Grupos, 4 equipos cada uno ─────────────────────────────────────────────
 GROUPS: dict[str, list[str]] = {
-    "GRUPO_A": ["Mexico",          "South Korea",   "South Africa",          "Czechia"],
-    "GRUPO_B": ["Canada",          "Switzerland",   "Qatar",                 "Bosnia and Herzegovina"],
-    "GRUPO_C": ["Brazil",          "Morocco",       "Scotland",              "Haiti"],
-    "GRUPO_D": ["United States",   "Turkey",        "Australia",             "Paraguay"],
-    "GRUPO_E": ["Germany",         "Ecuador",       "Ivory Coast",           "Curacao"],
-    "GRUPO_F": ["Netherlands",     "Japan",         "Sweden",                "Tunisia"],
-    "GRUPO_G": ["Belgium",         "Iran",          "Egypt",                 "New Zealand"],
-    "GRUPO_H": ["Spain",           "Uruguay",       "Saudi Arabia",          "Cape Verde"],
-    "GRUPO_I": ["France",          "Senegal",       "Norway",                "Iraq"],
-    "GRUPO_J": ["Argentina",       "Austria",       "Algeria",               "Jordan"],
-    "GRUPO_K": ["Portugal",        "Colombia",      "DR Congo",              "Uzbekistan"],
-    "GRUPO_L": ["England",         "Croatia",       "Ghana",                 "Panama"],
+    "GRUPO_A": ["México",          "Corea del Sur", "Sudáfrica",             "Rep. Checa"],
+    "GRUPO_B": ["Canadá",          "Suiza",         "Qatar",                 "Bosnia y Herzegovina"],
+    "GRUPO_C": ["Brasil",          "Marruecos",     "Escocia",               "Haití"],
+    "GRUPO_D": ["Estados Unidos",  "Turquía",       "Australia",             "Paraguay"],
+    "GRUPO_E": ["Alemania",        "Ecuador",       "Costa de Marfil",       "Curazao"],
+    "GRUPO_F": ["Países Bajos",    "Japón",         "Suecia",                "Túnez"],
+    "GRUPO_G": ["Bélgica",         "Irán",          "Egipto",                "Nueva Zelanda"],
+    "GRUPO_H": ["España",          "Uruguay",       "Arabia Saudita",        "Cabo Verde"],
+    "GRUPO_I": ["Francia",         "Senegal",       "Noruega",               "Irak"],
+    "GRUPO_J": ["Argentina",       "Austria",       "Argelia",               "Jordania"],
+    "GRUPO_K": ["Portugal",        "Colombia",      "Congo RD",              "Uzbekistán"],
+    "GRUPO_L": ["Inglaterra",      "Croacia",       "Ghana",                 "Panamá"],
 }
 
 # ── Fechas de cada jornada por grupo (UTC) ─────────────────────────────────────
