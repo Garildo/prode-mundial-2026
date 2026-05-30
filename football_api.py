@@ -65,6 +65,8 @@ STAGE_LABELS = {
 
 def get_flag(team_name: str) -> str:
     """Devuelve código ISO alpha-2 para usar con flagcdn.com."""
+    if not team_name:
+        return ""
     name_lower = team_name.lower()
     for key, code in FLAG_MAP.items():
         if key in name_lower or name_lower in key:
@@ -112,8 +114,8 @@ async def sync_matches(db: Session) -> dict:
     synced = 0
     for m in data.get("matches", []):
         api_id = m["id"]
-        home_team = m["homeTeam"]["name"] or m["homeTeam"].get("shortName", "TBD")
-        away_team = m["awayTeam"]["name"] or m["awayTeam"].get("shortName", "TBD")
+        home_team = m["homeTeam"].get("name") or m["homeTeam"].get("shortName") or "TBD"
+        away_team = m["awayTeam"].get("name") or m["awayTeam"].get("shortName") or "TBD"
 
         match_date = datetime.fromisoformat(m["utcDate"].replace("Z", "+00:00")).replace(tzinfo=None)
         stage = parse_stage(m.get("stage", "GROUP_STAGE"), m.get("group", ""))

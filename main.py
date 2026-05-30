@@ -36,10 +36,12 @@ async def lifespan(app: FastAPI):
     create_tables()
     scheduler.add_job(_scheduled_sync, "interval", minutes=5, id="sync_matches")
     scheduler.start()
-    # Sync inicial al arrancar
+    # Sync inicial al arrancar (no crítico — si falla la app sigue)
     db = SessionLocal()
     try:
         await football_api.sync_matches(db)
+    except Exception:
+        pass
     finally:
         db.close()
     yield
