@@ -171,6 +171,13 @@ async def sync_matches(db: Session) -> dict:
                 models.Match.away_team == away_team,
                 models.Match.stage == stage,
             ).first()
+        # La API puede devolver el partido con equipos invertidos respecto al seed
+        if not existing:
+            existing = db.query(models.Match).filter(
+                models.Match.home_team == away_team,
+                models.Match.away_team == home_team,
+                models.Match.stage == stage,
+            ).first()
 
         if existing:
             existing.api_id = api_id
