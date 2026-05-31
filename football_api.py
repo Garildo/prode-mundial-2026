@@ -154,8 +154,14 @@ async def sync_matches(db: Session) -> dict:
         home_team = translate_team(raw_home)
         away_team = translate_team(raw_away)
 
+        # Saltar partidos sin equipos definidos
+        if home_team == "TBD" or away_team == "TBD":
+            continue
+
         match_date = datetime.fromisoformat(m["utcDate"].replace("Z", "+00:00")).replace(tzinfo=None)
-        stage = parse_stage(m.get("stage", "GROUP_STAGE"), m.get("group", ""))
+        m_stage_raw = m.get("stage", "GROUP_STAGE")
+        # m.get("group") puede devolver None si la API envía null — usar or "" para evitar crash
+        stage = parse_stage(m_stage_raw, m.get("group") or "")
         status = status_map.get(m.get("status", "SCHEDULED"), "SCHEDULED")
 
         ft = m.get("score", {}).get("fullTime", {})
@@ -163,20 +169,35 @@ async def sync_matches(db: Session) -> dict:
         away_score = ft.get("away")
         result = determine_result(home_score, away_score) if status == "FINISHED" and home_score is not None else None
 
-        # Buscar por api_id primero, luego por equipos+stage (para linkear registros del seed)
+        # B1: por api_id
         existing = db.query(models.Match).filter(models.Match.api_id == api_id).first()
+        # B2: equipos + stage (linkea registros del seed cuando el formato coincide)
         if not existing:
             existing = db.query(models.Match).filter(
                 models.Match.home_team == home_team,
                 models.Match.away_team == away_team,
                 models.Match.stage == stage,
             ).first()
-        # La API puede devolver el partido con equipos invertidos respecto al seed
+        # B3: equipos invertidos + stage (la API a veces invierte home/away)
         if not existing:
             existing = db.query(models.Match).filter(
                 models.Match.home_team == away_team,
                 models.Match.away_team == home_team,
                 models.Match.stage == stage,
+            ).first()
+        # B4: equipos sin stage, solo registros del seed (api_id IS NULL) — tolera diferencias de formato de stage
+        if not existing:
+            existing = db.query(models.Match).filter(
+                models.Match.home_team == home_team,
+                models.Match.away_team == away_team,
+                models.Match.api_id.is_(None),
+            ).first()
+        # B5: equipos invertidos sin stage, solo registros del seed
+        if not existing:
+            existing = db.query(models.Match).filter(
+                models.Match.home_team == away_team,
+                models.Match.away_team == home_team,
+                models.Match.api_id.is_(None),
             ).first()
 
         if existing:
@@ -187,7 +208,9 @@ async def sync_matches(db: Session) -> dict:
             existing.away_score = away_score
             existing.result = result
             existing.updated_at = datetime.utcnow()
-        else:
+        elif m_stage_raw != "GROUP_STAGE":
+            # Solo insertar partidos que NO son de fase de grupos (eliminatorias)
+            # Los de fase de grupos los carga el seed; si llegamos aquí es un duplicado fantasma
             db.add(models.Match(
                 api_id=api_id,
                 home_team=home_team,
