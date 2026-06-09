@@ -354,7 +354,8 @@
         html += `<div class="stage-header">${escHtml(fmtStage(stage))}</div>`;
         byStage[stage].forEach(m => {
           const pred = myPredictions[m.id];
-          const canPredict = m.status === 'SCHEDULED';
+          const matchStarted = m.match_date ? new Date(m.match_date + 'Z') <= new Date() : false;
+          const canPredict = m.status === 'SCHEDULED' && !matchStarted;
           const isFinished = m.status === 'FINISHED';
           const isLive = m.status === 'LIVE';
 
@@ -366,7 +367,9 @@
 
           const statusBadge = isLive
             ? '<span class="status-live">EN VIVO</span>'
-            : isFinished ? `<span class="status-finished">Final</span>` : '';
+            : isFinished ? `<span class="status-finished">Final</span>`
+            : matchStarted ? '<span class="status-finished" style="background:#78350f; color:#fef3c7;">Cerrado</span>'
+            : '';
 
           const cardBorder = pred?.is_correct === true ? 'border-color:#22c55e;'
             : pred?.is_correct === false ? 'border-color:#ef4444;' : '';
