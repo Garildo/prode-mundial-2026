@@ -37,6 +37,8 @@
     .pred-btn-pending-home { border-color: #3b82f6; border-style: dashed; background: #162032; color: #93c5fd; }
     .pred-btn-pending-draw { border-color: #eab308; border-style: dashed; background: #1a1a08; color: #fef08a; }
     .pred-btn-pending-away { border-color: #ef4444; border-style: dashed; background: #220f0f; color: #fca5a5; }
+    .filter-btn { padding: 7px 15px; border-radius: 20px; border: 1px solid #334155; background: transparent; color: #94a3b8; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+    .filter-btn.active { background: #16a34a; border-color: #16a34a; color: white; }
     /* Toast */
     .toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background: #16a34a; color: white; padding: 10px 20px; border-radius: 10px; font-weight: 600; z-index: 200; opacity: 0; transition: opacity .3s; pointer-events: none; white-space: nowrap; }
     /* Barra de confirmación flotante */
@@ -100,6 +102,13 @@
     </div>
 
     <div id="content-matches">
+      <!-- Filtro por jornada -->
+      <div style="display:flex; gap:8px; overflow-x:auto; padding-bottom:10px; margin-bottom:4px; scrollbar-width:none;">
+        <button class="filter-btn jornada-btn active" onclick="setJornada(null, this)">Todas</button>
+        <button class="filter-btn jornada-btn" onclick="setJornada(1, this)">1ra Fecha</button>
+        <button class="filter-btn jornada-btn" onclick="setJornada(2, this)">2da Fecha</button>
+        <button class="filter-btn jornada-btn" onclick="setJornada(3, this)">3ra Fecha</button>
+      </div>
       <div id="matches-list">
         <div style="text-align:center; padding:40px; color:#64748b;">Cargando partidos...</div>
       </div>
@@ -124,12 +133,32 @@
     let groupMatches = [];
     let myPredictions = {};  // guardados en servidor
     let pendingPredictions = {};  // selecciones locales sin confirmar
+    let activeJornada = null;
 
     // Cargar pendientes de localStorage
     try {
       const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
       Object.entries(raw).forEach(([k, v]) => { pendingPredictions[parseInt(k)] = v; });
     } catch (_) {}
+
+    function computeMatchdays(matches) {
+      const byStage = {};
+      matches.filter(m => m.stage && m.stage.startsWith('GRUPO_')).forEach(m => {
+        if (!byStage[m.stage]) byStage[m.stage] = [];
+        byStage[m.stage].push(m);
+      });
+      Object.values(byStage).forEach(stageMatches => {
+        stageMatches.sort((a, b) => new Date(a.match_date) - new Date(b.match_date));
+        stageMatches.forEach((m, idx) => { m.matchday = Math.floor(idx / 2) + 1; });
+      });
+    }
+
+    function setJornada(j, btn) {
+      activeJornada = j;
+      document.querySelectorAll('.jornada-btn').forEach(b => b.className = 'filter-btn jornada-btn');
+      btn.className = 'filter-btn jornada-btn active';
+      renderMatches();
+    }
 
     async function api(url, opts = {}) {
       const r = await fetch(url, {
@@ -314,6 +343,7 @@
       ]);
       if (!mr || !pr) return;
       groupMatches = await mr.json();
+      computeMatchdays(groupMatches);
       const preds = await pr.json();
       myPredictions = {};
       preds.forEach(p => { myPredictions[p.match_id] = p; });
@@ -342,9 +372,18 @@
         return;
       }
 
+      const displayMatches = activeJornada === null
+        ? groupMatches
+        : groupMatches.filter(m => m.matchday === activeJornada);
+
+      if (!displayMatches.length) {
+        el.innerHTML = `<div style="text-align:center; padding:40px; color:#64748b;"><p>No hay partidos en esta fecha.</p></div>`;
+        return;
+      }
+
       const byStage = {};
       const stageOrder = [];
-      groupMatches.forEach(m => {
+      displayMatches.forEach(m => {
         if (!byStage[m.stage]) { byStage[m.stage] = []; stageOrder.push(m.stage); }
         byStage[m.stage].push(m);
       });
