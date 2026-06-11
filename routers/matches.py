@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 import auth as auth_utils
+from auth import require_admin
 import football_api
 import models
 from database import get_db
@@ -52,7 +53,7 @@ def get_match(
 @router.post("/sync")
 async def sync(
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(auth_utils.get_current_user),
+    admin: models.User = Depends(require_admin),
 ):
     return await football_api.sync_matches(db)
 
@@ -68,7 +69,7 @@ class CreateMatchRequest(BaseModel):
 def create_match(
     req: CreateMatchRequest,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(auth_utils.get_current_user),
+    admin: models.User = Depends(require_admin),
 ):
     try:
         match_date = datetime.fromisoformat(req.match_date)
@@ -100,7 +101,7 @@ def set_result(
     match_id: int,
     req: SetResultRequest,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(auth_utils.get_current_user),
+    admin: models.User = Depends(require_admin),
 ):
     m = db.query(models.Match).filter(models.Match.id == match_id).first()
     if not m:

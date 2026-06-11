@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+  <title>Admin — Prode 2026</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background: #0f172a; color: #e2e8f0; font-family: system-ui, sans-serif; margin: 0; }
+    .card { background: #1e293b; border-radius: 14px; padding: 20px; margin-bottom: 16px; border: 1px solid #334155; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+    .badge-live { background: #dc2626; color: white; }
+    .badge-scheduled { background: #1e3a5f; color: #93c5fd; }
+    .badge-finished { background: #14532d; color: #86efac; }
+    .badge-admin { background: #7c3aed; color: #ddd6fe; }
+    .btn { padding: 8px 16px; border-radius: 10px; border: none; font-weight: 600; cursor: pointer; font-size: 13px; transition: opacity .2s; }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+    .btn-green { background: #16a34a; color: white; }
+    .btn-blue { background: #1d4ed8; color: white; }
+    .btn-red { background: #dc2626; color: white; }
+    .btn-gray { background: #334155; color: #94a3b8; }
+    .section-title { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #64748b; margin-bottom: 14px; }
+    input[type=number] { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 6px 10px; color: #e2e8f0; width: 56px; text-align: center; font-size: 15px; font-weight: 700; }
+    .match-row { display: flex; align-items: center; gap: 10px; padding: 12px 0; border-bottom: 1px solid #1e293b; flex-wrap: wrap; }
+    .match-row:last-child { border-bottom: none; }
+    .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #16a34a; color: white; padding: 10px 20px; border-radius: 10px; font-weight: 600; z-index: 200; opacity: 0; transition: opacity .3s; pointer-events: none; white-space: nowrap; }
+  </style>
+</head>
+<body>
+  <div id="toast" class="toast"></div>
+
+  <!-- Header -->
+  <div style="background:#1e293b; padding:14px 20px; display:flex; align-items:center; gap:14px; position:sticky; top:0; z-index:10; border-bottom:1px solid #334155;">
+    <button onclick="window.location.href='/app'" style="background:transparent; border:none; color:#94a3b8; cursor:pointer; font-size:22px; padding:0; line-height:1;">‹</button>
+    <div style="flex:1;">
+      <div style="font-weight:700; font-size:17px;">Panel Admin</div>
+      <div id="admin-name" style="font-size:13px; color:#64748b;"></div>
+    </div>
+    <span class="badge badge-admin">ADMIN</span>
+  </div>
+
+  <div style="padding:20px; max-width:600px; margin:0 auto; padding-bottom:40px;">
+
+    <!-- Sync -->
+    <div class="card">
+      <div class="section-title">Sincronización API</div>
+      <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+        <button class="btn btn-blue" id="btn-sync" onclick="syncMatches()">Sync FIFA API</button>
+        <div id="sync-msg" style="font-size:13px; color:#64748b;"></div>
+      </div>
+    </div>
+
+    <!-- Partidos activos -->
+    <div class="card">
+      <div class="section-title">Cargar Resultados</div>
+      <div style="display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap;">
+        <button class="btn btn-gray active-filter" id="f-active" onclick="setFilter('active', this)">Hoy / En vivo</button>
+        <button class="btn btn-gray" id="f-all" onclick="setFilter('all', this)">Todos</button>
+      </div>
+      <div id="matches-list"><div style="color:#64748b; font-size:13px;">Cargando...</div></div>
+    </div>
+
+    <!-- Usuarios -->
+    <div class="card">
+      <div class="section-title">Usuarios registrados (<span id="user-count">0</span>)</div>
+      <div id="users-list"><div style="color:#64748b; font-size:13px;">Cargando...</div></div>
+    </div>
+
+  </div>
+
+  <script>
+    const token = localStorage.getItem('prode_token');
+    const user = JSON.parse(localStorage.getItem('prode_user') || '{}');
+    if (!token) window.location.href = '/';
+
+    let allMatches = [];
+    let activeFilter = 'active';
+
+    function showToast(msg, err = false) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.style.background = err ? '#dc2626' : '#16a34a';
+      t.style.opacity = '1';
+      setTimeout(() => { t.style.opacity = '0'; }, 2800);
+    }
+
+    async function api(url, opts = {}) {
+      try {
+        const r = await fetch(url, {
+          ...opts,
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json', ...(opts.headers || {}) }
+        });
+        if (r.status === 401) { window.location.href = '/'; return null; }
+        if (r.status === 403) { showToast('Sin permisos de admin', true); return null; }
+        return r;
+      } catch { showToast('Error de conexion', true); return null; }
+    }
+
+    function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+    function fmtDate(iso) {
+      if (!iso) return '';
+      const d = new Date(iso + (iso.endsWith('Z') ? '' : 'Z'));
+      return d.toLocaleDateString('es-AR', { weekday:'short', day:'numeric', month:'short', timeZone:'America/Argentina/Buenos_Aires' })
+        + ' ' + d.toLocaleTimeString('es-AR', { hour:'2-digit', minute:'2-digit', timeZone:'America/Argentina/Buenos_Aires' });
+    }
+
+    // ── Sync ───────────────────────────────────────────────────────────────────
+    async function syncMatches() {
+      const btn = document.getElementById('btn-sync');
+      const msg = document.getElementById('sync-msg');
+      btn.disabled = true; btn.textContent = 'Sincronizando...';
+      msg.textContent = '';
+      const r = await api('/api/matches/sync', { method: 'POST' });
+      btn.disabled = false; btn.textContent = 'Sync FIFA API';
+      if (!r) return;
+      const data = await r.json();
+      msg.textContent = data.error ? `Error: ${data.error}` : `${data.synced} partidos sincronizados`;
+      if (!data.error) loadMatches();
+    }
+
+    // ── Filtro ─────────────────────────────────────────────────────────────────
+    function setFilter(f, el) {
+      activeFilter = f;
+      document.querySelectorAll('.active-filter').forEach(b => { b.classList.remove('active-filter'); b.style.background = '#334155'; b.style.color = '#94a3b8'; });
+      el.classList.add('active-filter'); el.style.background = '#1d4ed8'; el.style.color = 'white';
+      renderMatches();
+    }
+
+    // ── Matches ────────────────────────────────────────────────────────────────
+    async function loadMatches() {
+      const r = await api('/api/matches');
+      if (!r) return;
+      allMatches = await r.json();
+      renderMatches();
+    }
+
+    function renderMatches() {
+      const now = new Date();
+      let matches = allMatches;
+      if (activeFilter === 'active') {
+        matches = allMatches.filter(m => {
+          if (m.status === 'LIVE') return true;
+          const d = new Date(m.match_date + (m.match_date.endsWith('Z') ? '' : 'Z'));
+          const diffH = (now - d) / 3600000;
+          return diffH >= -2 && diffH <= 24;
+        });
+      }
+      matches = [...matches].sort((a, b) => new Date(a.match_date) - new Date(b.match_date));
+
+      if (!matches.length) {
+        document.getElementById('matches-list').innerHTML = '<div style="color:#64748b; font-size:13px;">No hay partidos en este filtro.</div>';
+        return;
+      }
+
+      const html = matches.map(m => {
+        const isFinished = m.status === 'FINISHED';
+        const isLive = m.status === 'LIVE';
+        const badge = isLive
+          ? '<span class="badge badge-live">EN VIVO</span>'
+          : isFinished ? '<span class="badge badge-finished">Final</span>'
+          : '<span class="badge badge-scheduled">Programado</span>';
+
+        const scoreDisplay = (isFinished || isLive)
+          ? `<span style="font-weight:800; font-size:16px; color:#f1f5f9;">${m.home_score ?? 0} - ${m.away_score ?? 0}</span>`
+          : '';
+
+        return `<div class="match-row">
+          <div style="flex:1; min-width:180px;">
+            <div style="font-size:13px; font-weight:600;">${escHtml(m.home_team)} vs ${escHtml(m.away_team)}</div>
+            <div style="font-size:11px; color:#64748b; margin-top:2px;">${fmtDate(m.match_date)}</div>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
+            ${badge}
+            ${scoreDisplay}
+            <input type="number" id="hs-${m.id}" min="0" max="20" placeholder="L" value="${isFinished || isLive ? (m.home_score ?? '') : ''}">
+            <span style="color:#64748b;">-</span>
+            <input type="number" id="as-${m.id}" min="0" max="20" placeholder="V" value="${isFinished || isLive ? (m.away_score ?? '') : ''}">
+            <button class="btn btn-green" onclick="saveResult(${m.id})" style="padding:7px 12px;">Guardar</button>
+          </div>
+        </div>`;
+      }).join('');
+
+      document.getElementById('matches-list').innerHTML = html;
+    }
+
+    async function saveResult(matchId) {
+      const hs = document.getElementById(`hs-${matchId}`).value;
+      const as_ = document.getElementById(`as-${matchId}`).value;
+      if (hs === '' || as_ === '') { showToast('Ingresa ambos marcadores', true); return; }
+      const r = await api(`/api/matches/${matchId}/result`, {
+        method: 'PUT',
+        body: JSON.stringify({ home_score: parseInt(hs), away_score: parseInt(as_) })
+      });
+      if (!r) return;
+      if (r.ok) {
+        showToast('Resultado guardado');
+        loadMatches();
+      } else {
+        const e = await r.json();
+        showToast(e.detail || 'Error', true);
+      }
+    }
+
+    // ── Usuarios ───────────────────────────────────────────────────────────────
+    async function loadUsers() {
+      const r = await api('/api/admin/users');
+      if (!r) return;
+      if (!r.ok) { document.getElementById('users-list').innerHTML = '<div style="color:#ef4444; font-size:13px;">Sin acceso.</div>'; return; }
+      const users = await r.json();
+      document.getElementById('user-count').textContent = users.length;
+      document.getElementById('users-list').innerHTML = users.map(u => `
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid #0f172a; flex-wrap:wrap; gap:6px;">
+          <div>
+            <span style="font-weight:600; font-size:14px;">${escHtml(u.username)}</span>
+            ${u.is_admin ? '<span class="badge badge-admin" style="margin-left:6px;">admin</span>' : ''}
+            <div style="font-size:12px; color:#64748b;">${escHtml(u.email)}</div>
+          </div>
+          <div style="font-size:11px; color:#475569;">${new Date(u.created_at).toLocaleDateString('es-AR')}</div>
+        </div>`).join('');
+    }
+
+    // ── Init ───────────────────────────────────────────────────────────────────
+    document.getElementById('admin-name').textContent = user.username || '';
+    document.getElementById('f-active').style.background = '#1d4ed8';
+    document.getElementById('f-active').style.color = 'white';
+
+    loadMatches();
+    loadUsers();
+  </script>
+</body>
+</html>

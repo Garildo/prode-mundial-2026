@@ -11,7 +11,7 @@ from fastapi.templating import Jinja2Templates
 import football_api
 import models
 from database import SessionLocal, engine
-from routers import auth, groups, matches, predictions, rankings
+from routers import admin, auth, groups, matches, predictions, rankings
 
 load_dotenv()
 
@@ -61,6 +61,7 @@ app.add_middleware(
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
+app.include_router(admin.router)
 app.include_router(auth.router)
 app.include_router(groups.router)
 app.include_router(matches.router)
@@ -91,6 +92,11 @@ async def page_predict(request: Request, match_id: int):
 @app.get("/app/matches")
 async def page_matches(request: Request):
     return templates.TemplateResponse(request=request, name="matches.html")
+
+
+@app.get("/admin")
+async def page_admin(request: Request):
+    return templates.TemplateResponse(request=request, name="admin.html")
 
 
 @app.get("/ping")
