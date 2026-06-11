@@ -64,6 +64,12 @@
       </div>
     </div>
 
+    <!-- Grupos -->
+    <div class="card">
+      <div class="section-title">Grupos creados (<span id="group-count">0</span>)</div>
+      <div id="groups-list"><div style="color:#64748b; font-size:13px;">Cargando...</div></div>
+    </div>
+
     <!-- Partidos activos -->
     <div class="card">
       <div class="section-title">Cargar Resultados</div>
@@ -216,6 +222,36 @@
       }
     }
 
+    // ── Grupos ────────────────────────────────────────────────────────────────
+    async function loadGroups() {
+      const r = await api('/api/admin/groups');
+      if (!r || !r.ok) return;
+      const groups = await r.json();
+      document.getElementById('group-count').textContent = groups.length;
+      if (!groups.length) {
+        document.getElementById('groups-list').innerHTML = '<div style="color:#64748b; font-size:13px;">No hay grupos.</div>';
+        return;
+      }
+      document.getElementById('groups-list').innerHTML = groups.map(g => {
+        const memberChips = g.members.map(m =>
+          `<span style="background:#0f172a; border-radius:6px; padding:2px 8px; font-size:11px; color:#94a3b8;">${escHtml(m.username)}</span>`
+        ).join('');
+        return `<div style="padding:12px 0; border-bottom:1px solid #0f172a;">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; margin-bottom:6px;">
+            <div>
+              <span style="font-weight:600; font-size:14px;">${escHtml(g.name)}</span>
+              <span style="font-size:11px; color:#64748b; margin-left:8px;">por ${escHtml(g.creator)}</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="font-size:12px; color:#64748b;">${g.member_count} miembro${g.member_count !== 1 ? 's' : ''}</span>
+              <span style="font-family:monospace; font-size:13px; color:#22c55e; background:#0f172a; padding:3px 8px; border-radius:6px;">${escHtml(g.invite_code)}</span>
+            </div>
+          </div>
+          <div style="display:flex; flex-wrap:wrap; gap:4px;">${memberChips}</div>
+        </div>`;
+      }).join('');
+    }
+
     // ── Usuarios ───────────────────────────────────────────────────────────────
     async function loadUsers() {
       const r = await api('/api/admin/users');
@@ -277,6 +313,7 @@
     document.getElementById('f-active').style.background = '#1d4ed8';
     document.getElementById('f-active').style.color = 'white';
 
+    loadGroups();
     loadMatches();
     loadUsers();
   </script>

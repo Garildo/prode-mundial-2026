@@ -27,6 +27,32 @@ def list_users(
     ]
 
 
+@router.get("/groups")
+def list_groups(
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(require_admin),
+):
+    groups = db.query(models.Group).order_by(models.Group.created_at).all()
+    result = []
+    for g in groups:
+        members = (
+            db.query(models.GroupMember, models.User.username)
+            .join(models.User, models.GroupMember.user_id == models.User.id)
+            .filter(models.GroupMember.group_id == g.id)
+            .all()
+        )
+        creator = db.query(models.User.username).filter(models.User.id == g.created_by).scalar()
+        result.append({
+            "id": g.id,
+            "name": g.name,
+            "invite_code": g.invite_code,
+            "creator": creator,
+            "member_count": len(members),
+            "members": [{"username": username} for _, username in members],
+        })
+    return result
+
+
 class ResetPasswordRequest(BaseModel):
     new_password: str
 
