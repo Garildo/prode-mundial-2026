@@ -131,7 +131,8 @@
 
     let inviteCode = '';
     let groupMatches = [];
-    let myPredictions = {};  // guardados en servidor
+    let myPredictions = {};     // guardados en servidor
+    let groupPredictions = {};  // predicciones de todos los miembros (partidos iniciados)
     let pendingPredictions = {};  // selecciones locales sin confirmar
     let activeJornada = null;
 
@@ -324,6 +325,30 @@
       showToast(msg);
     }
 
+    function renderGroupPreds(matchId, homeTeam, awayTeam) {
+      const preds = groupPredictions[matchId] || groupPredictions[String(matchId)];
+      if (!preds || !preds.length) return '';
+
+      const chips = preds.map(p => {
+        const label = predLabel(p.prediction, homeTeam, awayTeam);
+        let cls;
+        if (p.is_correct === true)  cls = 'pred-correct';
+        else if (p.is_correct === false) cls = 'pred-wrong';
+        else cls = predClass(p.prediction, null);
+        const isMe = p.user_id === user.id;
+        const nameStyle = isMe ? 'color:#22c55e; font-weight:700;' : 'color:#94a3b8;';
+        return `<div style="display:flex; align-items:center; gap:5px; background:#0f172a; border-radius:8px; padding:5px 8px;">
+          <span style="font-size:11px; ${nameStyle} white-space:nowrap;">${escHtml(p.username)}</span>
+          <span class="pred-badge ${cls}" style="font-size:11px; padding:2px 7px;">${escHtml(label)}</span>
+        </div>`;
+      }).join('');
+
+      return `<div style="margin-top:10px; border-top:1px solid #1e293b; padding-top:10px;">
+        <div style="font-size:11px; color:#475569; margin-bottom:6px; letter-spacing:.5px; text-transform:uppercase;">Pronósticos del grupo</div>
+        <div style="display:flex; flex-wrap:wrap; gap:6px;">${chips}</div>
+      </div>`;
+    }
+
     // ── Render ─────────────────────────────────────────────────────────────────
 
     async function loadGroup() {
@@ -337,9 +362,10 @@
     }
 
     async function loadMatches() {
-      const [mr, pr] = await Promise.all([
+      const [mr, pr, gpr] = await Promise.all([
         api('/api/matches'),
-        api(`/api/predictions?group_id=${groupId}`)
+        api(`/api/predictions?group_id=${groupId}`),
+        api(`/api/predictions/public?group_id=${groupId}`)
       ]);
       if (!mr || !pr) return;
       groupMatches = await mr.json();
@@ -347,6 +373,7 @@
       const preds = await pr.json();
       myPredictions = {};
       preds.forEach(p => { myPredictions[p.match_id] = p; });
+      groupPredictions = gpr ? await gpr.json() : {};
 
       // Limpiar pendientes de partidos que ya empezaron
       groupMatches.forEach(m => {
@@ -440,7 +467,8 @@
               ? predLabel(pred.prediction, m.home_team, m.away_team)
               : 'No pronosticaste';
             const predCls = pred ? predClass(pred.prediction, pred.is_correct) : 'no-pred';
-            bottomHtml = `<div style="margin-top:10px;"><span class="pred-badge ${predCls}">${predText}</span></div>`;
+            const groupPredsHtml = matchStarted ? renderGroupPreds(m.id, m.home_team, m.away_team) : '';
+            bottomHtml = `<div style="margin-top:10px;"><span class="pred-badge ${predCls}">${predText}</span></div>${groupPredsHtml}`;
           }
 
           html += `<div class="match-card" style="${cardBorder}">

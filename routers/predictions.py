@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 import auth as auth_utils
@@ -134,6 +135,52 @@ def make_predictions_batch(
 
     db.commit()
     return {"saved": saved, "errors": errors}
+
+
+@router.get("/public")
+def get_public_predictions(
+    group_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth_utils.get_current_user),
+):
+    if not db.query(models.GroupMember).filter(
+        models.GroupMember.group_id == group_id,
+        models.GroupMember.user_id == current_user.id,
+    ).first():
+        raise HTTPException(403, "No perteneces a este grupo")
+
+    now = datetime.utcnow()
+    started_ids = [
+        m.id for m in db.query(models.Match.id).filter(
+            or_(
+                models.Match.match_date <= now,
+                models.Match.status.in_(["LIVE", "FINISHED"]),
+            )
+        ).all()
+    ]
+    if not started_ids:
+        return {}
+
+    rows = (
+        db.query(models.Prediction, models.User.username)
+        .join(models.User, models.Prediction.user_id == models.User.id)
+        .filter(
+            models.Prediction.group_id == group_id,
+            models.Prediction.match_id.in_(started_ids),
+        )
+        .all()
+    )
+
+    result: dict[int, list] = {}
+    for pred, username in rows:
+        result.setdefault(pred.match_id, []).append({
+            "user_id": pred.user_id,
+            "username": username,
+            "prediction": pred.prediction,
+            "is_correct": pred.is_correct,
+        })
+
+    return result
 
 
 @router.get("")
