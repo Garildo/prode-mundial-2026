@@ -102,12 +102,9 @@
     </div>
 
     <div id="content-matches">
-      <!-- Filtro por jornada -->
-      <div style="display:flex; gap:8px; overflow-x:auto; padding-bottom:10px; margin-bottom:4px; scrollbar-width:none;">
-        <button class="filter-btn jornada-btn active" onclick="setJornada(null, this)">Todas</button>
-        <button class="filter-btn jornada-btn" onclick="setJornada(1, this)">1ra Fecha</button>
-        <button class="filter-btn jornada-btn" onclick="setJornada(2, this)">2da Fecha</button>
-        <button class="filter-btn jornada-btn" onclick="setJornada(3, this)">3ra Fecha</button>
+      <!-- Filtro por día -->
+      <div id="day-filter-row" style="display:flex; gap:8px; overflow-x:auto; padding-bottom:10px; margin-bottom:4px; scrollbar-width:none;">
+        <button class="filter-btn day-btn active" onclick="setDay(null, this)">Todas</button>
       </div>
       <div id="matches-list">
         <div style="text-align:center; padding:40px; color:#64748b;">Cargando partidos...</div>
@@ -134,7 +131,7 @@
     let myPredictions = {};     // guardados en servidor
     let groupPredictions = {};  // predicciones de todos los miembros (partidos iniciados)
     let pendingPredictions = {};  // selecciones locales sin confirmar
-    let activeJornada = null;
+    let activeDay = null;
 
     // Cargar pendientes de localStorage
     try {
@@ -142,22 +139,34 @@
       Object.entries(raw).forEach(([k, v]) => { pendingPredictions[parseInt(k)] = v; });
     } catch (_) {}
 
-    function computeMatchdays(matches) {
-      const byStage = {};
-      matches.filter(m => m.stage && m.stage.startsWith('GRUPO_')).forEach(m => {
-        if (!byStage[m.stage]) byStage[m.stage] = [];
-        byStage[m.stage].push(m);
-      });
-      Object.values(byStage).forEach(stageMatches => {
-        stageMatches.sort((a, b) => new Date(a.match_date) - new Date(b.match_date));
-        stageMatches.forEach((m, idx) => { m.matchday = Math.floor(idx / 2) + 1; });
-      });
+    function getArgDate(iso) {
+      if (!iso) return '';
+      const d = new Date(iso + (iso.endsWith('Z') ? '' : 'Z'));
+      return d.toLocaleDateString('en-CA', {timeZone:'America/Argentina/Buenos_Aires'});
     }
 
-    function setJornada(j, btn) {
-      activeJornada = j;
-      document.querySelectorAll('.jornada-btn').forEach(b => b.className = 'filter-btn jornada-btn');
-      btn.className = 'filter-btn jornada-btn active';
+    function fmtDayHeader(dateKey) {
+      const [y, m, day] = dateKey.split('-').map(Number);
+      return new Date(y, m - 1, day, 12).toLocaleDateString('es-AR', {weekday:'long', day:'numeric', month:'long'});
+    }
+
+    function fmtDayBtn(dateKey) {
+      const [y, m, day] = dateKey.split('-').map(Number);
+      return new Date(y, m - 1, day, 12).toLocaleDateString('es-AR', {day:'numeric', month:'short'});
+    }
+
+    function buildDayButtons() {
+      const days = [...new Set(groupMatches.map(m => getArgDate(m.match_date)))].sort();
+      const row = document.getElementById('day-filter-row');
+      const allBtn = `<button class="filter-btn day-btn active" onclick="setDay(null, this)">Todas</button>`;
+      const dayBtns = days.map(d => `<button class="filter-btn day-btn" onclick="setDay('${d}', this)">${escHtml(fmtDayBtn(d))}</button>`).join('');
+      row.innerHTML = allBtn + dayBtns;
+    }
+
+    function setDay(d, btn) {
+      activeDay = d;
+      document.querySelectorAll('.day-btn').forEach(b => b.className = 'filter-btn day-btn');
+      btn.className = 'filter-btn day-btn active';
       renderMatches();
     }
 
@@ -175,8 +184,7 @@
     function fmtDate(iso) {
       if (!iso) return '';
       const d = new Date(iso + (iso.endsWith('Z') ? '' : 'Z'));
-      return d.toLocaleDateString('es-AR', {weekday:'short', day:'numeric', month:'short', timeZone:'America/Argentina/Buenos_Aires'})
-        + ' ' + d.toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit', timeZone:'America/Argentina/Buenos_Aires'});
+      return d.toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit', timeZone:'America/Argentina/Buenos_Aires'}) + 'hs';
     }
 
     function fmtStage(s) {
@@ -369,7 +377,6 @@
       ]);
       if (!mr || !pr) return;
       groupMatches = await mr.json();
-      computeMatchdays(groupMatches);
       const preds = await pr.json();
       myPredictions = {};
       preds.forEach(p => { myPredictions[p.match_id] = p; });
@@ -383,6 +390,7 @@
       });
       savePendingToStorage();
 
+      buildDayButtons();
       renderMatches();
       updateConfirmBar();
     }
@@ -399,26 +407,29 @@
         return;
       }
 
-      const displayMatches = activeJornada === null
+      const displayMatches = activeDay === null
         ? groupMatches
-        : groupMatches.filter(m => m.matchday === activeJornada);
+        : groupMatches.filter(m => getArgDate(m.match_date) === activeDay);
 
       if (!displayMatches.length) {
-        el.innerHTML = `<div style="text-align:center; padding:40px; color:#64748b;"><p>No hay partidos en esta fecha.</p></div>`;
+        el.innerHTML = `<div style="text-align:center; padding:40px; color:#64748b;"><p>No hay partidos en este día.</p></div>`;
         return;
       }
 
-      const byStage = {};
-      const stageOrder = [];
+      // Agrupar por día y ordenar por hora dentro del día
+      const byDay = {};
+      const dayOrder = [];
       displayMatches.forEach(m => {
-        if (!byStage[m.stage]) { byStage[m.stage] = []; stageOrder.push(m.stage); }
-        byStage[m.stage].push(m);
+        const day = getArgDate(m.match_date);
+        if (!byDay[day]) { byDay[day] = []; dayOrder.push(day); }
+        byDay[day].push(m);
       });
+      Object.values(byDay).forEach(ms => ms.sort((a, b) => new Date(a.match_date) - new Date(b.match_date)));
 
       let html = '';
-      stageOrder.forEach(stage => {
-        html += `<div class="stage-header">${escHtml(fmtStage(stage))}</div>`;
-        byStage[stage].forEach(m => {
+      dayOrder.forEach(day => {
+        html += `<div class="stage-header">📅 ${fmtDayHeader(day)}</div>`;
+        byDay[day].forEach(m => {
           const pred = myPredictions[m.id];
           const matchStarted = m.match_date ? new Date(m.match_date + 'Z') <= new Date() : false;
           const canPredict = m.status === 'SCHEDULED' && !matchStarted;
@@ -473,7 +484,10 @@
 
           html += `<div class="match-card" style="${cardBorder}">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-              <span style="font-size:12px; color:#64748b;">${fmtDate(m.match_date)}</span>
+              <div>
+                <div style="font-size:11px; color:#64748b; text-transform:uppercase; letter-spacing:.5px;">${escHtml(fmtStage(m.stage))}</div>
+                <div style="font-size:12px; color:#94a3b8;">${fmtDate(m.match_date)}</div>
+              </div>
               ${statusBadge}
             </div>
             <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">

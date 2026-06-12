@@ -16,30 +16,40 @@ def _calc_bonus(user_id: int, group_id: int, db: Session) -> int:
         models.Match.result.isnot(None),
     ).all()
 
-    stage_match_ids: dict[str, set] = defaultdict(set)
-    for m in finished_matches:
-        if m.stage.startswith("GRUPO_"):
-            stage_match_ids[m.stage].add(m.id)
-
-    if not stage_match_ids:
+    if not finished_matches:
         return 0
 
-    correct_preds = db.query(models.Prediction).filter(
-        models.Prediction.user_id == user_id,
-        models.Prediction.group_id == group_id,
-        models.Prediction.is_correct == True,
-    ).all()
-    all_preds = db.query(models.Prediction).filter(
-        models.Prediction.user_id == user_id,
-        models.Prediction.group_id == group_id,
-    ).all()
+    # Agrupa partidos finalizados por fecha (UTC)
+    day_finished_ids: dict = defaultdict(set)
+    for m in finished_matches:
+        day_finished_ids[m.match_date.date()].add(m.id)
 
-    correct_ids = {p.match_id for p in correct_preds}
-    all_pred_ids = {p.match_id for p in all_preds}
+    # Total de partidos por día (para saber si el día cerró completo)
+    day_all_ids: dict = defaultdict(set)
+    for m in db.query(models.Match).all():
+        day_all_ids[m.match_date.date()].add(m.id)
+
+    correct_ids = {
+        p.match_id for p in db.query(models.Prediction).filter(
+            models.Prediction.user_id == user_id,
+            models.Prediction.group_id == group_id,
+            models.Prediction.is_correct == True,
+        ).all()
+    }
+    all_pred_ids = {
+        p.match_id for p in db.query(models.Prediction).filter(
+            models.Prediction.user_id == user_id,
+            models.Prediction.group_id == group_id,
+        ).all()
+    }
 
     bonus = 0
-    for stage, match_ids in stage_match_ids.items():
-        if match_ids and match_ids.issubset(all_pred_ids) and match_ids.issubset(correct_ids):
+    for day, finished_ids in day_finished_ids.items():
+        # El día debe estar completo (todos los partidos del día finalizados)
+        if finished_ids != day_all_ids[day]:
+            continue
+        # El usuario debe haber acertado todos los partidos del día
+        if finished_ids and finished_ids.issubset(all_pred_ids) and finished_ids.issubset(correct_ids):
             bonus += 1
     return bonus
 
