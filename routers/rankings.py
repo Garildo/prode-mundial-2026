@@ -1,4 +1,5 @@
 from collections import defaultdict
+from datetime import timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -8,6 +9,15 @@ import models
 from database import get_db
 
 router = APIRouter(prefix="/api/rankings", tags=["rankings"])
+
+# Usar zona horaria Argentina para que coincida con el filtro del frontend
+_AR = timezone(timedelta(hours=-3))
+
+
+def _arg_date(dt):
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(_AR).date()
 
 
 def _calc_bonus(user_id: int, group_id: int, db: Session) -> int:
@@ -19,15 +29,15 @@ def _calc_bonus(user_id: int, group_id: int, db: Session) -> int:
     if not finished_matches:
         return 0
 
-    # Agrupa partidos finalizados por fecha (UTC)
+    # Agrupa por fecha Argentina (mismo criterio que el frontend)
     day_finished_ids: dict = defaultdict(set)
     for m in finished_matches:
-        day_finished_ids[m.match_date.date()].add(m.id)
+        day_finished_ids[_arg_date(m.match_date)].add(m.id)
 
-    # Total de partidos por día (para saber si el día cerró completo)
+    # Total de partidos por día
     day_all_ids: dict = defaultdict(set)
     for m in db.query(models.Match).all():
-        day_all_ids[m.match_date.date()].add(m.id)
+        day_all_ids[_arg_date(m.match_date)].add(m.id)
 
     correct_ids = {
         p.match_id for p in db.query(models.Prediction).filter(
