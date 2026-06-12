@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <clipPath id="ball-clip">
+      <circle cx="256" cy="256" r="192"/>
+    </clipPath>
+  </defs>
+
+  <!-- Fondo de icono (estilo iOS/Android) -->
+  <rect width="512" height="512" rx="115" fill="#0f172a"/>
+
+  <!-- Pelota (recortada al círculo) -->
+  <g clip-path="url(#ball-clip)">
+    <circle cx="256" cy="256" r="192" fill="#f8fafc"/>
+    <!-- Parche central -->
+    <polygon points="256,175 305,209 286,260 226,260 207,209" fill="#1e293b"/>
+    <!-- Parche arriba -->
+    <polygon points="256,68 306,100 298,150 214,150 206,100" fill="#1e293b"/>
+    <!-- Parche arriba-derecha -->
+    <polygon points="386,166 424,198 414,248 370,262 334,238 348,188" fill="#1e293b"/>
+    <!-- Parche abajo-derecha -->
+    <polygon points="370,318 400,352 384,398 340,402 312,366 330,322" fill="#1e293b"/>
+    <!-- Parche abajo -->
+    <polygon points="256,368 302,356 326,400 286,444 226,444 186,400 210,356" fill="#1e293b"/>
+    <!-- Parche abajo-izquierda -->
+    <polygon points="142,318 182,322 200,366 172,402 128,398 112,352" fill="#1e293b"/>
+    <!-- Parche arriba-izquierda -->
+    <polygon points="126,166 164,188 178,238 142,262 98,248 88,198" fill="#1e293b"/>
+  </g>
+
+  <!-- Borde de la pelota -->
+  <circle cx="256" cy="256" r="192" fill="none" stroke="#94a3b8" stroke-width="6"/>
+</svg>
