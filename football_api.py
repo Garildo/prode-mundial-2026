@@ -240,7 +240,6 @@ def _update_predictions_correctness(db: Session):
     for match in finished:
         preds = db.query(models.Prediction).filter(
             models.Prediction.match_id == match.id,
-            models.Prediction.is_correct.is_(None),
         ).all()
         for p in preds:
             p.is_correct = p.prediction == match.result
