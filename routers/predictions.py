@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -54,8 +54,8 @@ def make_prediction(
     match_date = match.match_date
     if match_date.tzinfo is None:
         match_date = match_date.replace(tzinfo=timezone.utc)
-    if now >= match_date:
-        raise HTTPException(400, "No se pueden hacer predicciones después del inicio del partido")
+    if now >= match_date - timedelta(minutes=10):
+        raise HTTPException(400, "No se pueden hacer predicciones 10 minutos antes del inicio del partido")
 
     existing = db.query(models.Prediction).filter(
         models.Prediction.user_id == current_user.id,
@@ -111,7 +111,7 @@ def make_predictions_batch(
         match_date = match.match_date
         if match_date.tzinfo is None:
             match_date = match_date.replace(tzinfo=timezone.utc)
-        if now >= match_date:
+        if now >= match_date - timedelta(minutes=10):
             errors.append({"match_id": item.match_id, "error": "Partido ya inició"})
             continue
 
