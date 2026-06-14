@@ -171,6 +171,8 @@ async def sync_matches(db: Session) -> dict:
         # B1: por api_id
         inverted = False
         existing = db.query(models.Match).filter(models.Match.api_id == api_id).first()
+        if existing and existing.home_team == away_team:
+            inverted = True
         # B2: equipos + stage
         if not existing:
             existing = db.query(models.Match).filter(
