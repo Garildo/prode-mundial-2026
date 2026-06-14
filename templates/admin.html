@@ -60,6 +60,7 @@
       <div class="section-title">Sincronización API</div>
       <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
         <button class="btn btn-blue" id="btn-sync" onclick="syncMatches()">Sync FIFA API</button>
+        <button class="btn btn-green" id="btn-recalc" onclick="recalcPoints()">Recalcular puntos</button>
         <div id="sync-msg" style="font-size:13px; color:#64748b;"></div>
       </div>
     </div>
@@ -75,6 +76,7 @@
       <div class="section-title">Cargar Resultados</div>
       <div style="display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap;">
         <button class="btn btn-gray active-filter" id="f-active" onclick="setFilter('active', this)">Hoy / En vivo</button>
+        <button class="btn btn-gray" id="f-finished" onclick="setFilter('finished', this)">Finalizados</button>
         <button class="btn btn-gray" id="f-all" onclick="setFilter('all', this)">Todos</button>
       </div>
       <div id="matches-list"><div style="color:#64748b; font-size:13px;">Cargando...</div></div>
@@ -125,6 +127,24 @@
         + ' ' + d.toLocaleTimeString('es-AR', { hour:'2-digit', minute:'2-digit', timeZone:'America/Argentina/Buenos_Aires' });
     }
 
+    // ── Recalcular puntos ──────────────────────────────────────────────────────
+    async function recalcPoints() {
+      const btn = document.getElementById('btn-recalc');
+      const msg = document.getElementById('sync-msg');
+      btn.disabled = true; btn.textContent = 'Recalculando...';
+      msg.textContent = '';
+      const r = await api('/api/admin/recalculate', { method: 'POST' });
+      btn.disabled = false; btn.textContent = 'Recalcular puntos';
+      if (!r) return;
+      const data = await r.json();
+      if (data.ok) {
+        showToast(`Puntos recalculados (${data.matches_processed} partidos)`);
+        msg.textContent = `Puntos recalculados — ${data.matches_processed} partidos procesados`;
+      } else {
+        showToast('Error al recalcular', true);
+      }
+    }
+
     // ── Sync ───────────────────────────────────────────────────────────────────
     async function syncMatches() {
       const btn = document.getElementById('btn-sync');
@@ -165,6 +185,8 @@
           const diffH = (now - d) / 3600000;
           return diffH >= -2 && diffH <= 24;
         });
+      } else if (activeFilter === 'finished') {
+        matches = allMatches.filter(m => m.status === 'FINISHED');
       }
       matches = [...matches].sort((a, b) => new Date(a.match_date) - new Date(b.match_date));
 
@@ -181,8 +203,11 @@
           : isFinished ? '<span class="badge badge-finished">Final</span>'
           : '<span class="badge badge-scheduled">Programado</span>';
 
+        const resultBadge = isFinished && m.result
+          ? `<span style="font-size:11px; font-weight:700; padding:2px 8px; border-radius:6px; background:#0f172a; color:${m.result==='HOME'?'#60a5fa':m.result==='AWAY'?'#f87171':'#fbbf24'};">${m.result}</span>`
+          : '';
         const scoreDisplay = (isFinished || isLive)
-          ? `<span style="font-weight:800; font-size:16px; color:#f1f5f9;">${m.home_score ?? 0} - ${m.away_score ?? 0}</span>`
+          ? `<span style="font-weight:800; font-size:16px; color:#f1f5f9;">${m.home_score ?? 0} - ${m.away_score ?? 0}</span>${resultBadge}`
           : '';
 
         return `<div class="match-row">
@@ -312,6 +337,8 @@
     document.getElementById('admin-name').textContent = user.username || '';
     document.getElementById('f-active').style.background = '#1d4ed8';
     document.getElementById('f-active').style.color = 'white';
+    document.getElementById('f-finished').style.background = '#334155';
+    document.getElementById('f-finished').style.color = '#94a3b8';
 
     loadGroups();
     loadMatches();

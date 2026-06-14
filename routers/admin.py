@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from auth import require_admin, hash_password
+import football_api
 import models
 from database import get_db
 
@@ -51,6 +52,19 @@ def list_groups(
             "members": [{"username": username} for _, username in members],
         })
     return result
+
+
+@router.post("/recalculate")
+def recalculate_points(
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(require_admin),
+):
+    football_api._update_predictions_correctness(db)
+    processed = db.query(models.Match).filter(
+        models.Match.status == "FINISHED",
+        models.Match.result.isnot(None),
+    ).count()
+    return {"ok": True, "matches_processed": processed}
 
 
 class ResetPasswordRequest(BaseModel):
