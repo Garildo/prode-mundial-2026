@@ -167,25 +167,27 @@ async def sync_matches(db: Session) -> dict:
         ft = m.get("score", {}).get("fullTime", {})
         home_score = ft.get("home")
         away_score = ft.get("away")
-        result = determine_result(home_score, away_score) if status == "FINISHED" and home_score is not None else None
 
         # B1: por api_id
+        inverted = False
         existing = db.query(models.Match).filter(models.Match.api_id == api_id).first()
-        # B2: equipos + stage (linkea registros del seed cuando el formato coincide)
+        # B2: equipos + stage
         if not existing:
             existing = db.query(models.Match).filter(
                 models.Match.home_team == home_team,
                 models.Match.away_team == away_team,
                 models.Match.stage == stage,
             ).first()
-        # B3: equipos invertidos + stage (la API a veces invierte home/away)
+        # B3: equipos invertidos + stage
         if not existing:
             existing = db.query(models.Match).filter(
                 models.Match.home_team == away_team,
                 models.Match.away_team == home_team,
                 models.Match.stage == stage,
             ).first()
-        # B4: equipos sin stage, solo registros del seed (api_id IS NULL) — tolera diferencias de formato de stage
+            if existing:
+                inverted = True
+        # B4: equipos sin stage, solo registros del seed (api_id IS NULL)
         if not existing:
             existing = db.query(models.Match).filter(
                 models.Match.home_team == home_team,
@@ -199,18 +201,26 @@ async def sync_matches(db: Session) -> dict:
                 models.Match.away_team == home_team,
                 models.Match.api_id.is_(None),
             ).first()
+            if existing:
+                inverted = True
 
         if existing:
+            # Si los equipos están invertidos respecto a la API, swapear scores
+            db_home_score = away_score if inverted else home_score
+            db_away_score = home_score if inverted else away_score
+            db_result = determine_result(db_home_score, db_away_score) if status == "FINISHED" and db_home_score is not None else None
+
             existing.api_id = api_id
             existing.match_date = match_date
             existing.status = status
-            existing.home_score = home_score
-            existing.away_score = away_score
-            existing.result = result
+            existing.home_score = db_home_score
+            existing.away_score = db_away_score
+            existing.result = db_result
             existing.updated_at = datetime.utcnow()
         elif m_stage_raw != "GROUP_STAGE":
             # Solo insertar partidos que NO son de fase de grupos (eliminatorias)
             # Los de fase de grupos los carga el seed; si llegamos aquí es un duplicado fantasma
+            new_result = determine_result(home_score, away_score) if status == "FINISHED" and home_score is not None else None
             db.add(models.Match(
                 api_id=api_id,
                 home_team=home_team,
@@ -220,7 +230,7 @@ async def sync_matches(db: Session) -> dict:
                 match_date=match_date,
                 stage=stage,
                 status=status,
-                result=result,
+                result=new_result,
                 home_score=home_score,
                 away_score=away_score,
             ))
