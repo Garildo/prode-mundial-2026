@@ -172,10 +172,19 @@
 
     function buildDayButtons() {
       const days = [...new Set(groupMatches.map(m => getArgDate(m.match_date)))].sort();
+      const today = new Date().toLocaleDateString('en-CA', {timeZone:'America/Argentina/Buenos_Aires'});
+      const hasToday = days.includes(today);
       const row = document.getElementById('day-filter-row');
-      const allBtn = `<button class="filter-btn day-btn active" onclick="setDay(null, this)">Todas</button>`;
+      const allBtn = `<button class="filter-btn day-btn" onclick="setDay(null, this)">Todas</button>`;
+      const todayBtn = hasToday ? `<button class="filter-btn day-btn" onclick="setDay('${today}', this)" id="btn-hoy">Hoy</button>` : '';
       const dayBtns = days.map(d => `<button class="filter-btn day-btn" onclick="setDay('${d}', this)">${escHtml(fmtDayBtn(d))}</button>`).join('');
-      row.innerHTML = allBtn + dayBtns;
+      row.innerHTML = allBtn + todayBtn + dayBtns;
+
+      // Auto-seleccionar Hoy si hay partidos hoy
+      if (hasToday) {
+        const btnHoy = document.getElementById('btn-hoy');
+        setDay(today, btnHoy);
+      }
     }
 
     function setDay(d, btn) {
