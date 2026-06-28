@@ -481,8 +481,8 @@
         html += `<div class="stage-header">📅 ${fmtDayHeader(day)}</div>`;
         byDay[day].forEach(m => {
           const pred = myPredictions[m.id];
-          const matchStarted = m.match_date ? new Date(m.match_date + 'Z') - new Date() <= 10 * 60 * 1000 : false;
-          const canPredict = m.status === 'SCHEDULED' && !matchStarted;
+          const matchStarted = false;
+          const canPredict = m.status === 'SCHEDULED';
           const isFinished = m.status === 'FINISHED';
           const isLive = m.status === 'LIVE';
 
