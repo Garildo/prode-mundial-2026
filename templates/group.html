@@ -482,7 +482,7 @@
         byDay[day].forEach(m => {
           const pred = myPredictions[m.id];
           const matchStarted = false;
-          const canPredict = m.status === 'SCHEDULED';
+          const canPredict = m.status !== 'FINISHED';
           const isFinished = m.status === 'FINISHED';
           const isLive = m.status === 'LIVE';
 

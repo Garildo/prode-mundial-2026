@@ -58,8 +58,8 @@ def make_predictions_batch(
             errors.append({"match_id": item.match_id, "error": "Partido no encontrado"})
             continue
 
-        if match.status in ("LIVE", "FINISHED"):
-            errors.append({"match_id": item.match_id, "error": "Partido ya comenzó"})
+        if match.status == "FINISHED":
+            errors.append({"match_id": item.match_id, "error": "Partido ya terminó"})
             continue
 
 
