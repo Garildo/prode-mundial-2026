@@ -268,8 +268,8 @@
 
       const saved = myPredictions[matchId];
 
-      if (h !== '' && a !== '') {
-        const hi = parseInt(h), ai = parseInt(a);
+      if (h !== '' || a !== '') {
+        const hi = parseInt(h || '0'), ai = parseInt(a || '0');
         if (saved?.predicted_home === hi && saved?.predicted_away === ai) {
           delete pendingPredictions[matchId];
         } else {
