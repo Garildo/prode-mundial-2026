@@ -282,6 +282,48 @@
       savePendingToStorage();
       updateConfirmBar();
       updateScoreInputBorder(matchId);
+      updateSaveBtn(matchId);
+    }
+
+    function updateSaveBtn(matchId) {
+      const btn = document.getElementById(`save-btn-${matchId}`);
+      if (!btn) return;
+      const pending = pendingPredictions[matchId];
+      if (pending !== undefined) {
+        btn.style.display = 'block';
+        btn.style.opacity = '1';
+      } else {
+        btn.style.display = 'none';
+      }
+    }
+
+    async function saveOne(matchId) {
+      const scoreObj = pendingPredictions[matchId];
+      if (!scoreObj) return;
+
+      const btn = document.getElementById(`save-btn-${matchId}`);
+      if (btn) { btn.disabled = true; btn.textContent = 'Guardando...'; }
+
+      const r = await api('/api/predictions/batch', {
+        method: 'POST',
+        body: JSON.stringify({ group_id: groupId, predictions: [{ match_id: matchId, home_score: scoreObj.h, away_score: scoreObj.a }] })
+      });
+
+      if (!r || !r.ok) {
+        showToast('❌ Error al guardar', true);
+        if (btn) { btn.disabled = false; btn.textContent = 'Guardar'; }
+        return;
+      }
+
+      const result = scoreObj.h > scoreObj.a ? 'HOME' : scoreObj.h < scoreObj.a ? 'AWAY' : 'DRAW';
+      myPredictions[matchId] = { match_id: matchId, prediction: result, predicted_home: scoreObj.h, predicted_away: scoreObj.a, is_correct: null, is_exact: null };
+      delete pendingPredictions[matchId];
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(pendingPredictions));
+
+      updateConfirmBar();
+      updateScoreInputBorder(matchId);
+      if (btn) { btn.disabled = false; btn.textContent = 'Guardado ✓'; btn.style.background = '#14532d'; btn.style.color = '#86efac'; }
+      setTimeout(() => { if (btn) btn.style.display = 'none'; }, 1500);
     }
 
     function updateScoreInputBorder(matchId) {
@@ -538,7 +580,11 @@
                     oninput="updateScore(${m.id})"
                     style="width:64px; text-align:center; font-size:26px; font-weight:800; background:#0f172a; border:2px solid ${inputBorder}; border-radius:10px; color:#f1f5f9; padding:8px 2px; outline:none;">
                 </div>
-              </div>`;
+              </div>
+              <button id="save-btn-${m.id}" onclick="saveOne(${m.id})"
+                style="display:${pendingPredictions[m.id] !== undefined ? 'block' : 'none'}; width:100%; margin-top:12px; background:#16a34a; color:white; border:none; border-radius:10px; padding:11px; font-size:14px; font-weight:700; cursor:pointer;">
+                Guardar pronóstico
+              </button>`;
           } else {
             const groupPredsHtml = matchStarted ? renderGroupPreds(m.id, m.home_team, m.away_team) : '';
             bottomHtml = `<div style="margin-top:10px;">${buildPredBadge(pred, m.home_team, m.away_team)}</div>${groupPredsHtml}`;
