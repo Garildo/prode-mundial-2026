@@ -67,8 +67,11 @@ class Prediction(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     group_id = Column(Integer, ForeignKey("groups.id"), nullable=False)
     match_id = Column(Integer, ForeignKey("matches.id"), nullable=False)
-    prediction = Column(String, nullable=False)  # HOME, AWAY, DRAW
+    prediction = Column(String, nullable=False)  # HOME, AWAY, DRAW (siempre seteado)
+    predicted_home = Column(Integer, nullable=True)   # NULL = sistema viejo
+    predicted_away = Column(Integer, nullable=True)
     is_correct = Column(Boolean, nullable=True)
+    is_exact = Column(Boolean, nullable=True)          # True si acertó score exacto
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

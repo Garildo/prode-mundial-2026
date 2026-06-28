@@ -6,21 +6,17 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 import auth as auth_utils
+import football_api
 import models
 from database import get_db
 
 router = APIRouter(prefix="/api/predictions", tags=["predictions"])
 
 
-class PredictionRequest(BaseModel):
-    group_id: int
-    match_id: int
-    prediction: str  # HOME, AWAY, DRAW
-
-
 class BatchPredictionItem(BaseModel):
     match_id: int
-    prediction: str
+    home_score: int
+    away_score: int
 
 
 class BatchPredictionRequest(BaseModel):
@@ -28,54 +24,12 @@ class BatchPredictionRequest(BaseModel):
     predictions: list[BatchPredictionItem]
 
 
-@router.post("")
-def make_prediction(
-    req: PredictionRequest,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(auth_utils.get_current_user),
-):
-    if req.prediction not in ("HOME", "AWAY", "DRAW"):
-        raise HTTPException(400, "Predicción inválida")
-
-    if not db.query(models.GroupMember).filter(
-        models.GroupMember.group_id == req.group_id,
-        models.GroupMember.user_id == current_user.id,
-    ).first():
-        raise HTTPException(403, "No perteneces a este grupo")
-
-    match = db.query(models.Match).filter(models.Match.id == req.match_id).first()
-    if not match:
-        raise HTTPException(404, "Partido no encontrado")
-
-    if match.status in ("LIVE", "FINISHED"):
-        raise HTTPException(400, "El partido ya comenzó o terminó")
-
-    now = datetime.now(timezone.utc)
-    match_date = match.match_date
-    if match_date.tzinfo is None:
-        match_date = match_date.replace(tzinfo=timezone.utc)
-    if now >= match_date - timedelta(minutes=10):
-        raise HTTPException(400, "No se pueden hacer predicciones 10 minutos antes del inicio del partido")
-
-    existing = db.query(models.Prediction).filter(
-        models.Prediction.user_id == current_user.id,
-        models.Prediction.group_id == req.group_id,
-        models.Prediction.match_id == req.match_id,
-    ).first()
-
-    if existing:
-        existing.prediction = req.prediction
-        existing.updated_at = datetime.utcnow()
-    else:
-        db.add(models.Prediction(
-            user_id=current_user.id,
-            group_id=req.group_id,
-            match_id=req.match_id,
-            prediction=req.prediction,
-        ))
-
-    db.commit()
-    return {"status": "ok", "prediction": req.prediction}
+def _infer_result(home: int, away: int) -> str:
+    if home > away:
+        return "HOME"
+    if away > home:
+        return "AWAY"
+    return "DRAW"
 
 
 @router.post("/batch")
@@ -95,8 +49,8 @@ def make_predictions_batch(
     now = datetime.now(timezone.utc)
 
     for item in req.predictions:
-        if item.prediction not in ("HOME", "AWAY", "DRAW"):
-            errors.append({"match_id": item.match_id, "error": "Predicción inválida"})
+        if item.home_score < 0 or item.away_score < 0:
+            errors.append({"match_id": item.match_id, "error": "Score inválido"})
             continue
 
         match = db.query(models.Match).filter(models.Match.id == item.match_id).first()
@@ -115,6 +69,7 @@ def make_predictions_batch(
             errors.append({"match_id": item.match_id, "error": "Partido ya inició"})
             continue
 
+        result = _infer_result(item.home_score, item.away_score)
         existing = db.query(models.Prediction).filter(
             models.Prediction.user_id == current_user.id,
             models.Prediction.group_id == req.group_id,
@@ -122,14 +77,18 @@ def make_predictions_batch(
         ).first()
 
         if existing:
-            existing.prediction = item.prediction
+            existing.prediction = result
+            existing.predicted_home = item.home_score
+            existing.predicted_away = item.away_score
             existing.updated_at = datetime.utcnow()
         else:
             db.add(models.Prediction(
                 user_id=current_user.id,
                 group_id=req.group_id,
                 match_id=item.match_id,
-                prediction=item.prediction,
+                prediction=result,
+                predicted_home=item.home_score,
+                predicted_away=item.away_score,
             ))
         saved += 1
 
@@ -177,7 +136,10 @@ def get_public_predictions(
             "user_id": pred.user_id,
             "username": username,
             "prediction": pred.prediction,
+            "predicted_home": pred.predicted_home,
+            "predicted_away": pred.predicted_away,
             "is_correct": pred.is_correct,
+            "is_exact": pred.is_exact,
         })
 
     return result
@@ -200,5 +162,11 @@ def get_predictions(
         models.Prediction.group_id == group_id,
     ).all()
 
-    return [{"match_id": p.match_id, "prediction": p.prediction, "is_correct": p.is_correct}
-            for p in preds]
+    return [{
+        "match_id": p.match_id,
+        "prediction": p.prediction,
+        "predicted_home": p.predicted_home,
+        "predicted_away": p.predicted_away,
+        "is_correct": p.is_correct,
+        "is_exact": p.is_exact,
+    } for p in preds]

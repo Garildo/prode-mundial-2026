@@ -10,7 +10,6 @@ from database import get_db
 
 router = APIRouter(prefix="/api/rankings", tags=["rankings"])
 
-# Usar zona horaria Argentina para que coincida con el filtro del frontend
 _AR = timezone(timedelta(hours=-3))
 
 
@@ -21,6 +20,7 @@ def _arg_date(dt):
 
 
 def _calc_bonus(user_id: int, group_id: int, db: Session) -> int:
+    """Bonus de día completo — solo aplica a predicciones del sistema viejo (sin scores)."""
     finished_matches = db.query(models.Match).filter(
         models.Match.status == "FINISHED",
         models.Match.result.isnot(None),
@@ -29,36 +29,35 @@ def _calc_bonus(user_id: int, group_id: int, db: Session) -> int:
     if not finished_matches:
         return 0
 
-    # Agrupa por fecha Argentina (mismo criterio que el frontend)
     day_finished_ids: dict = defaultdict(set)
     for m in finished_matches:
         day_finished_ids[_arg_date(m.match_date)].add(m.id)
 
-    # Total de partidos por día
     day_all_ids: dict = defaultdict(set)
     for m in db.query(models.Match).all():
         day_all_ids[_arg_date(m.match_date)].add(m.id)
 
+    # Solo predicciones viejas (sin scores)
     correct_ids = {
         p.match_id for p in db.query(models.Prediction).filter(
             models.Prediction.user_id == user_id,
             models.Prediction.group_id == group_id,
             models.Prediction.is_correct == True,
+            models.Prediction.predicted_home.is_(None),
         ).all()
     }
     all_pred_ids = {
         p.match_id for p in db.query(models.Prediction).filter(
             models.Prediction.user_id == user_id,
             models.Prediction.group_id == group_id,
+            models.Prediction.predicted_home.is_(None),
         ).all()
     }
 
     bonus = 0
     for day, finished_ids in day_finished_ids.items():
-        # El día debe estar completo (todos los partidos del día finalizados)
         if finished_ids != day_all_ids[day]:
             continue
-        # El usuario debe haber acertado todos los partidos del día
         if finished_ids and finished_ids.issubset(all_pred_ids) and finished_ids.issubset(correct_ids):
             bonus += 1
     return bonus
@@ -90,15 +89,22 @@ def get_ranking(
             models.Prediction.group_id == group_id,
         ).all()
 
-        base = sum(1 for p in preds if p.is_correct)
+        old_preds = [p for p in preds if p.predicted_home is None]
+        new_preds = [p for p in preds if p.predicted_home is not None]
+
+        base = sum(1 for p in old_preds if p.is_correct)
         bonus = _calc_bonus(u.id, group_id, db)
-        total = base + bonus
+        result_points = sum(3 for p in new_preds if p.is_correct)
+        exact_points = sum(2 for p in new_preds if p.is_exact)
+        total = base + bonus + result_points + exact_points
 
         rankings.append({
             "user_id": u.id,
             "username": u.username,
             "base_points": base,
             "bonus_points": bonus,
+            "result_points": result_points,
+            "exact_points": exact_points,
             "total_points": total,
             "predictions_made": len(preds),
             "total_matches": total_matches,

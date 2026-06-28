@@ -31,24 +31,20 @@
     .share-code { background: #0f172a; border: 1px solid #334155; border-radius: 10px; padding: 10px 16px; font-family: monospace; font-size: 22px; letter-spacing: 6px; text-align: center; color: #22c55e; font-weight: 700; cursor: pointer; }
     .status-live { background: #dc2626; color: white; border-radius: 4px; padding: 2px 6px; font-size: 11px; font-weight: 700; }
     .status-finished { color: #64748b; font-size: 12px; }
-    /* Botones de predicción */
-    .pred-btn { border-radius: 10px; padding: 8px 4px; cursor: pointer; font-size: 11px; font-weight: 700; transition: all .2s; border: 2px solid #334155; background: #0f172a; color: #64748b; width: 100%; text-align: center; line-height: 1.4; }
-    .pred-btn:hover:not(:disabled) { border-color: #475569; color: #94a3b8; }
-    .pred-btn:disabled { opacity: .5; cursor: not-allowed; }
-    /* Guardado (sólido) */
-    .pred-btn-home { border-color: #3b82f6; background: #1e3a5f; color: #93c5fd; }
-    .pred-btn-draw { border-color: #eab308; background: #2d2d0f; color: #fef08a; }
-    .pred-btn-away { border-color: #ef4444; background: #3d1a1a; color: #fca5a5; }
-    /* Pendiente (punteado) */
-    .pred-btn-pending-home { border-color: #3b82f6; border-style: dashed; background: #162032; color: #93c5fd; }
-    .pred-btn-pending-draw { border-color: #eab308; border-style: dashed; background: #1a1a08; color: #fef08a; }
-    .pred-btn-pending-away { border-color: #ef4444; border-style: dashed; background: #220f0f; color: #fca5a5; }
     .filter-btn { padding: 7px 15px; border-radius: 20px; border: 1px solid #334155; background: transparent; color: #94a3b8; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
     .filter-btn.active { background: #16a34a; border-color: #16a34a; color: white; }
     /* Toast */
     .toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background: #16a34a; color: white; padding: 10px 20px; border-radius: 10px; font-weight: 600; z-index: 200; opacity: 0; transition: opacity .3s; pointer-events: none; white-space: nowrap; }
     /* Barra de confirmación flotante */
     .confirm-bar { position: fixed; bottom: 0; left: 0; right: 0; padding: 12px 20px 20px; background: linear-gradient(transparent, #0a0f1e 35%); z-index: 50; display: none; }
+    /* Inputs de score */
+    input[type=number] { -moz-appearance: textfield; }
+    input[type=number]::-webkit-outer-spin-button,
+    input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    /* Botones modal badge */
+    .pred-btn-home { border-color: #3b82f6; background: #1e3a5f; color: #93c5fd; }
+    .pred-btn-draw { border-color: #eab308; background: #2d2d0f; color: #fef08a; }
+    .pred-btn-away { border-color: #ef4444; background: #3d1a1a; color: #fca5a5; }
   </style>
 </head>
 <body>
@@ -112,6 +108,15 @@
       <div id="day-filter-row" style="display:flex; gap:8px; overflow-x:auto; padding-bottom:10px; margin-bottom:4px; scrollbar-width:none;">
         <button class="filter-btn day-btn active" onclick="setDay(null, this)">Todas</button>
       </div>
+
+      <!-- Leyenda de puntos -->
+      <div style="display:flex; gap:8px; margin-bottom:12px; padding:10px 12px; background:#1e293b; border-radius:10px; border:1px solid #334155;">
+        <div style="font-size:11px; color:#64748b; flex:1;">
+          <span style="color:#86efac; font-weight:700;">✓ Resultado</span> = 3pts &nbsp;·&nbsp;
+          <span style="color:#fbbf24; font-weight:700;">⭐ Score exacto</span> = +2pts
+        </div>
+      </div>
+
       <div id="matches-list">
         <div style="text-align:center; padding:40px; color:#64748b;">Cargando partidos...</div>
       </div>
@@ -134,15 +139,19 @@
 
     let inviteCode = '';
     let groupMatches = [];
-    let myPredictions = {};     // guardados en servidor
-    let groupPredictions = {};  // predicciones de todos los miembros (partidos iniciados)
-    let pendingPredictions = {};  // selecciones locales sin confirmar
+    let myPredictions = {};
+    let groupPredictions = {};
+    let pendingPredictions = {};  // { matchId: {h, a} }
     let activeDay = null;
 
-    // Cargar pendientes de localStorage
+    // Cargar pendientes del localStorage (solo formato nuevo {h, a})
     try {
       const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-      Object.entries(raw).forEach(([k, v]) => { pendingPredictions[parseInt(k)] = v; });
+      Object.entries(raw).forEach(([k, v]) => {
+        if (v && typeof v === 'object' && 'h' in v && 'a' in v) {
+          pendingPredictions[parseInt(k)] = v;
+        }
+      });
     } catch (_) {}
 
     function getArgDate(iso) {
@@ -215,24 +224,20 @@
       return 'no-pred';
     }
 
-    // Devuelve la clase CSS del botón según estado guardado/pendiente
-    function btnClass(btnVal, matchId) {
-      const saved = myPredictions[matchId]?.prediction;
-      const pending = pendingPredictions[matchId];
-      const selected = pending !== undefined ? pending : saved;
-
-      if (btnVal !== selected) return 'pred-btn';
-
-      if (pending !== undefined && pending !== saved) {
-        // Pendiente: borde punteado
-        if (btnVal === 'HOME') return 'pred-btn pred-btn-pending-home';
-        if (btnVal === 'DRAW') return 'pred-btn pred-btn-pending-draw';
-        return 'pred-btn pred-btn-pending-away';
+    function buildPredBadge(pred, homeTeam, awayTeam) {
+      if (!pred) return `<span class="pred-badge no-pred">No pronosticaste</span>`;
+      if (pred.predicted_home !== null && pred.predicted_home !== undefined) {
+        let cls, suffix = '';
+        if (pred.is_exact === true) { cls = 'pred-correct'; suffix = ' ⭐'; }
+        else if (pred.is_correct === true) cls = 'pred-correct';
+        else if (pred.is_correct === false) cls = 'pred-wrong';
+        else cls = pred.prediction === 'HOME' ? 'pred-home' : pred.prediction === 'AWAY' ? 'pred-away' : 'pred-draw';
+        return `<span class="pred-badge ${cls}">${pred.predicted_home}-${pred.predicted_away}${suffix}</span>`;
       }
-      // Guardado: borde sólido
-      if (btnVal === 'HOME') return 'pred-btn pred-btn-home';
-      if (btnVal === 'DRAW') return 'pred-btn pred-btn-draw';
-      return 'pred-btn pred-btn-away';
+      // Sistema viejo
+      const label = predLabel(pred.prediction, homeTeam, awayTeam);
+      const cls = predClass(pred.prediction, pred.is_correct);
+      return `<span class="pred-badge ${cls}">${escHtml(label)}</span>`;
     }
 
     function savePendingToStorage() {
@@ -245,24 +250,40 @@
       document.getElementById('confirm-count').textContent = count;
     }
 
-    function selectPrediction(matchId, value) {
-      const saved = myPredictions[matchId]?.prediction;
-      if (saved === value) {
-        delete pendingPredictions[matchId];
+    function updateScore(matchId) {
+      const hInput = document.getElementById(`home-${matchId}`);
+      const aInput = document.getElementById(`away-${matchId}`);
+      if (!hInput || !aInput) return;
+      const h = hInput.value;
+      const a = aInput.value;
+
+      const saved = myPredictions[matchId];
+
+      if (h !== '' && a !== '') {
+        const hi = parseInt(h), ai = parseInt(a);
+        if (saved?.predicted_home === hi && saved?.predicted_away === ai) {
+          delete pendingPredictions[matchId];
+        } else {
+          pendingPredictions[matchId] = {h: hi, a: ai};
+        }
       } else {
-        pendingPredictions[matchId] = value;
+        delete pendingPredictions[matchId];
       }
+
       savePendingToStorage();
-      refreshCardButtons(matchId);
       updateConfirmBar();
+      updateScoreInputBorder(matchId);
     }
 
-    function refreshCardButtons(matchId) {
-      const container = document.getElementById(`pred-${matchId}`);
-      if (!container) return;
-      const btns = container.querySelectorAll('button');
-      const vals = ['HOME', 'DRAW', 'AWAY'];
-      btns.forEach((btn, i) => { btn.className = btnClass(vals[i], matchId); });
+    function updateScoreInputBorder(matchId) {
+      const hInput = document.getElementById(`home-${matchId}`);
+      const aInput = document.getElementById(`away-${matchId}`);
+      if (!hInput || !aInput) return;
+      const pending = pendingPredictions[matchId];
+      const saved = myPredictions[matchId];
+      const color = pending !== undefined ? '#3b82f6' : (saved ? '#22c55e' : '#334155');
+      hInput.style.borderColor = color;
+      aInput.style.borderColor = color;
     }
 
     // ── Modal ──────────────────────────────────────────────────────────────────
@@ -273,18 +294,19 @@
 
       document.getElementById('modal-count').textContent = entries.length;
 
-      const html = entries.map(([idStr, value]) => {
+      const html = entries.map(([idStr, scoreObj]) => {
         const mid = parseInt(idStr);
         const m = groupMatches.find(x => x.id === mid);
         if (!m) return '';
-        const label = predLabel(value, m.home_team, m.away_team);
-        const cls = value === 'HOME' ? 'pred-btn-home' : value === 'DRAW' ? 'pred-btn-draw' : 'pred-btn-away';
-        return `<div style="display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid #1e293b;">
+        const {h, a} = scoreObj;
+        const result = h > a ? 'HOME' : h < a ? 'AWAY' : 'DRAW';
+        const cls = result === 'HOME' ? 'pred-btn-home' : result === 'DRAW' ? 'pred-btn-draw' : 'pred-btn-away';
+        return `<div style="display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid #0f172a;">
           <div>
             <div style="font-size:13px; font-weight:600;">${escHtml(m.home_team)} vs ${escHtml(m.away_team)}</div>
             <div style="font-size:11px; color:#64748b;">${escHtml(fmtStage(m.stage))}</div>
           </div>
-          <span class="pred-badge ${cls}" style="flex-shrink:0; margin-left:10px;">${escHtml(label)}</span>
+          <span class="pred-badge ${cls}" style="flex-shrink:0; margin-left:10px; font-size:15px; padding:4px 14px;">${h} - ${a}</span>
         </div>`;
       }).join('');
 
@@ -298,8 +320,10 @@
     }
 
     async function confirmAll() {
-      const predictions = Object.entries(pendingPredictions).map(([id, prediction]) => ({
-        match_id: parseInt(id), prediction
+      const predictions = Object.entries(pendingPredictions).map(([id, scoreObj]) => ({
+        match_id: parseInt(id),
+        home_score: scoreObj.h,
+        away_score: scoreObj.a
       }));
       if (!predictions.length) return;
 
@@ -323,8 +347,16 @@
       const data = await r.json();
 
       // Mover pendientes a guardados
-      Object.entries(pendingPredictions).forEach(([id, prediction]) => {
-        myPredictions[parseInt(id)] = { match_id: parseInt(id), prediction, is_correct: null };
+      Object.entries(pendingPredictions).forEach(([id, scoreObj]) => {
+        const result = scoreObj.h > scoreObj.a ? 'HOME' : scoreObj.h < scoreObj.a ? 'AWAY' : 'DRAW';
+        myPredictions[parseInt(id)] = {
+          match_id: parseInt(id),
+          prediction: result,
+          predicted_home: scoreObj.h,
+          predicted_away: scoreObj.a,
+          is_correct: null,
+          is_exact: null
+        };
       });
       pendingPredictions = {};
       localStorage.removeItem(STORAGE_KEY);
@@ -344,11 +376,17 @@
       if (!preds || !preds.length) return '';
 
       const chips = preds.map(p => {
-        const label = predLabel(p.prediction, homeTeam, awayTeam);
-        let cls;
-        if (p.is_correct === true)  cls = 'pred-correct';
-        else if (p.is_correct === false) cls = 'pred-wrong';
-        else cls = predClass(p.prediction, null);
+        let label, cls;
+        if (p.predicted_home !== null && p.predicted_home !== undefined) {
+          label = `${p.predicted_home}-${p.predicted_away}`;
+          if (p.is_exact === true) { cls = 'pred-correct'; label += ' ⭐'; }
+          else if (p.is_correct === true) cls = 'pred-correct';
+          else if (p.is_correct === false) cls = 'pred-wrong';
+          else cls = p.prediction === 'HOME' ? 'pred-home' : p.prediction === 'AWAY' ? 'pred-away' : 'pred-draw';
+        } else {
+          label = predLabel(p.prediction, homeTeam, awayTeam);
+          cls = p.is_correct === true ? 'pred-correct' : p.is_correct === false ? 'pred-wrong' : predClass(p.prediction, null);
+        }
         const isMe = p.user_id === user.id;
         const nameStyle = isMe ? 'color:#22c55e; font-weight:700;' : 'color:#94a3b8;';
         return `<div style="display:flex; align-items:center; gap:5px; background:#0f172a; border-radius:8px; padding:5px 8px;">
@@ -388,10 +426,17 @@
       preds.forEach(p => { myPredictions[p.match_id] = p; });
       groupPredictions = gpr ? await gpr.json() : {};
 
-      // Limpiar pendientes de partidos que ya empezaron
+      // Limpiar pendientes de partidos que ya empezaron o formato inválido
       groupMatches.forEach(m => {
         if (m.status !== 'SCHEDULED' && pendingPredictions[m.id]) {
           delete pendingPredictions[m.id];
+        }
+      });
+      // Limpiar entradas de formato viejo (string)
+      Object.keys(pendingPredictions).forEach(id => {
+        const v = pendingPredictions[parseInt(id)];
+        if (!v || typeof v !== 'object' || !('h' in v)) {
+          delete pendingPredictions[parseInt(id)];
         }
       });
       savePendingToStorage();
@@ -422,7 +467,6 @@
         return;
       }
 
-      // Agrupar por día y ordenar por hora dentro del día
       const byDay = {};
       const dayOrder = [];
       displayMatches.forEach(m => {
@@ -462,30 +506,33 @@
 
           let bottomHtml;
           if (canPredict) {
+            const saved = myPredictions[m.id];
+            const pending = pendingPredictions[m.id];
+            const pendingH = pending !== undefined ? pending.h : (saved?.predicted_home ?? '');
+            const pendingA = pending !== undefined ? pending.a : (saved?.predicted_away ?? '');
+            const inputBorder = pending !== undefined ? '#3b82f6' : (saved ? '#22c55e' : '#334155');
+
             bottomHtml = `
-              <div style="display:flex; gap:6px; margin-top:12px;" id="pred-${m.id}">
-                <button class="${btnClass('HOME', m.id)}" onclick="selectPrediction(${m.id}, 'HOME')" style="flex:1;">
+              <div id="pred-${m.id}" style="display:flex; align-items:center; justify-content:center; gap:10px; margin-top:14px;">
+                <div style="text-align:center; flex:1;">
                   ${hFlagBtn}
-                  <div style="font-size:10px; opacity:.85; margin-bottom:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escHtml(m.home_team)}</div>
-                  <div>Gana</div>
-                </button>
-                <button class="${btnClass('DRAW', m.id)}" onclick="selectPrediction(${m.id}, 'DRAW')" style="flex:0 0 60px;">
-                  <div style="font-size:15px; line-height:1; margin-bottom:4px;">🤝</div>
-                  <div>Empate</div>
-                </button>
-                <button class="${btnClass('AWAY', m.id)}" onclick="selectPrediction(${m.id}, 'AWAY')" style="flex:1;">
+                  <div style="font-size:10px; color:#94a3b8; margin:3px 0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escHtml(m.home_team)}</div>
+                  <input type="number" id="home-${m.id}" min="0" max="20" value="${pendingH}" placeholder="0"
+                    oninput="updateScore(${m.id})"
+                    style="width:64px; text-align:center; font-size:26px; font-weight:800; background:#0f172a; border:2px solid ${inputBorder}; border-radius:10px; color:#f1f5f9; padding:8px 2px; outline:none;">
+                </div>
+                <div style="font-size:20px; color:#475569; font-weight:700; padding-top:20px;">-</div>
+                <div style="text-align:center; flex:1;">
                   ${aFlagBtn}
-                  <div style="font-size:10px; opacity:.85; margin-bottom:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escHtml(m.away_team)}</div>
-                  <div>Gana</div>
-                </button>
+                  <div style="font-size:10px; color:#94a3b8; margin:3px 0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escHtml(m.away_team)}</div>
+                  <input type="number" id="away-${m.id}" min="0" max="20" value="${pendingA}" placeholder="0"
+                    oninput="updateScore(${m.id})"
+                    style="width:64px; text-align:center; font-size:26px; font-weight:800; background:#0f172a; border:2px solid ${inputBorder}; border-radius:10px; color:#f1f5f9; padding:8px 2px; outline:none;">
+                </div>
               </div>`;
           } else {
-            const predText = pred
-              ? predLabel(pred.prediction, m.home_team, m.away_team)
-              : 'No pronosticaste';
-            const predCls = pred ? predClass(pred.prediction, pred.is_correct) : 'no-pred';
             const groupPredsHtml = matchStarted ? renderGroupPreds(m.id, m.home_team, m.away_team) : '';
-            bottomHtml = `<div style="margin-top:10px;"><span class="pred-badge ${predCls}">${predText}</span></div>${groupPredsHtml}`;
+            bottomHtml = `<div style="margin-top:10px;">${buildPredBadge(pred, m.home_team, m.away_team)}</div>${groupPredsHtml}`;
           }
 
           html += `<div class="match-card" style="${cardBorder}">
@@ -530,7 +577,13 @@
       }
       const medals = ['🥇','🥈','🥉'];
       const posCls = ['pos-1','pos-2','pos-3'];
-      el.innerHTML = ranking.map((r, i) => `
+      el.innerHTML = ranking.map((r, i) => {
+        const parts = [];
+        if (r.base_points > 0 || r.bonus_points > 0) parts.push(`${r.base_points}+${r.bonus_points}⭐ viejo`);
+        if (r.result_points > 0) parts.push(`${r.result_points} res`);
+        if (r.exact_points > 0) parts.push(`${r.exact_points} exacto`);
+        const breakdown = parts.length ? parts.join(' · ') : '—';
+        return `
         <div class="rank-row" style="${r.user_id === user.id ? 'border:1px solid #22c55e;' : ''}">
           <div class="rank-pos ${posCls[i] || ''}">${medals[i] || r.position}</div>
           <div style="flex:1;">
@@ -539,9 +592,10 @@
           </div>
           <div style="text-align:right;">
             <div style="font-size:22px; font-weight:800;">${r.total_points}</div>
-            <div style="font-size:11px; color:#64748b;">${r.base_points} + ${r.bonus_points}⭐</div>
+            <div style="font-size:11px; color:#64748b;">${breakdown}</div>
           </div>
-        </div>`).join('');
+        </div>`;
+      }).join('');
     }
 
     // ── Utils ──────────────────────────────────────────────────────────────────
