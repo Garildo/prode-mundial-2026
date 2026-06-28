@@ -109,11 +109,22 @@ def get_flag(team_name: str) -> str:
     return ""
 
 
+_STAGE_NORM = {
+    "LAST_32": "RONDA_32",
+    "LAST_16": "OCTAVOS",
+    "ROUND_OF_32": "RONDA_32",
+    "ROUND_OF_16": "OCTAVOS",
+    "QUARTER_FINALS": "CUARTOS",
+    "SEMI_FINALS": "SEMIFINAL",
+    "THIRD_PLACE": "TERCER_PUESTO",
+    "FINAL": "FINAL",
+}
+
 def parse_stage(stage_raw: str, group_raw: str = "") -> str:
     if stage_raw == "GROUP_STAGE":
         letter = group_raw.replace("GROUP_", "").replace("Group ", "").strip()
         return f"GRUPO_{letter}" if letter else "GRUPOS"
-    return stage_raw
+    return _STAGE_NORM.get(stage_raw, stage_raw)
 
 
 def determine_result(home: int, away: int) -> str:

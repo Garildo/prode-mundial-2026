@@ -213,7 +213,14 @@
 
     function fmtStage(s) {
       if (s.startsWith('GRUPO_')) return 'Grupo ' + s.replace('GRUPO_','');
-      const map = {OCTAVOS:'Octavos de Final',CUARTOS:'Cuartos de Final',SEMIFINAL:'Semifinales',TERCER_PUESTO:'Tercer Puesto',FINAL:'Final',GRUPOS:'Fase de Grupos'};
+      const map = {
+        RONDA_32:'Ronda de 32', LAST_32:'Ronda de 32', ROUND_OF_32:'Ronda de 32',
+        OCTAVOS:'Octavos de Final', LAST_16:'Octavos de Final', ROUND_OF_16:'Octavos de Final',
+        CUARTOS:'Cuartos de Final', QUARTER_FINALS:'Cuartos de Final',
+        SEMIFINAL:'Semifinales', SEMI_FINALS:'Semifinales',
+        TERCER_PUESTO:'Tercer Puesto', THIRD_PLACE:'Tercer Puesto',
+        FINAL:'Final', GRUPOS:'Fase de Grupos',
+      };
       return map[s] || s;
     }
 
