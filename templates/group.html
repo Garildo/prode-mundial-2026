@@ -144,6 +144,10 @@
     let pendingPredictions = {};  // { matchId: {h, a} }
     let activeDay = null;
 
+    function isKnockout(stage) {
+      return !stage.startsWith('GRUPO_') && stage !== 'GRUPOS';
+    }
+
     // Cargar pendientes del localStorage (solo formato nuevo {h, a})
     try {
       const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
@@ -274,13 +278,27 @@
       const a = aInput.value;
 
       const saved = myPredictions[matchId];
+      const m = groupMatches.find(x => x.id === matchId);
+      const knockout = m && isKnockout(m.stage);
+      const hi = parseInt(h || '0'), ai = parseInt(a || '0');
+      const equalDraw = knockout && (h !== '' || a !== '') && hi === ai;
+
+      // Mostrar/ocultar selector de ganador en knockouts
+      if (knockout) {
+        const winnerDiv = document.getElementById(`winner-${matchId}`);
+        if (winnerDiv) winnerDiv.style.display = equalDraw ? 'flex' : 'none';
+        if (!equalDraw && pendingPredictions[matchId]?.w) delete pendingPredictions[matchId].w;
+      }
 
       if (h !== '' || a !== '') {
-        const hi = parseInt(h || '0'), ai = parseInt(a || '0');
-        if (saved?.predicted_home === hi && saved?.predicted_away === ai) {
+        const currentW = equalDraw ? (pendingPredictions[matchId]?.w || null) : null;
+        const savedW = (saved?.predicted_home === saved?.predicted_away && saved?.prediction !== 'DRAW') ? saved?.prediction : null;
+        const sameAsSaved = saved?.predicted_home === hi && saved?.predicted_away === ai
+          && (!equalDraw || (currentW || savedW) === saved?.prediction);
+        if (sameAsSaved) {
           delete pendingPredictions[matchId];
         } else {
-          pendingPredictions[matchId] = {h: hi, a: ai};
+          pendingPredictions[matchId] = currentW ? {h: hi, a: ai, w: currentW} : {h: hi, a: ai};
         }
       } else {
         delete pendingPredictions[matchId];
@@ -297,11 +315,33 @@
       if (!btn) return;
       const pending = pendingPredictions[matchId];
       if (pending !== undefined) {
+        const m = groupMatches.find(x => x.id === matchId);
+        const needsWinner = m && isKnockout(m.stage) && pending.h === pending.a && !pending.w;
         btn.style.display = 'block';
-        btn.style.opacity = '1';
+        btn.disabled = needsWinner;
+        btn.style.opacity = needsWinner ? '0.5' : '1';
+        btn.textContent = needsWinner ? 'Elegí quién avanza ↑' : 'Guardar pronóstico';
       } else {
         btn.style.display = 'none';
       }
+    }
+
+    function setWinner(matchId, side) {
+      ['HOME', 'AWAY'].forEach(s => {
+        const b = document.getElementById(`winner-${s.toLowerCase()}-${matchId}`);
+        if (b) { b.style.background = s === side ? '#1e3a5f' : '#0f172a'; b.style.borderColor = s === side ? '#3b82f6' : '#334155'; }
+      });
+      if (pendingPredictions[matchId]) {
+        pendingPredictions[matchId].w = side;
+      } else {
+        const hi = parseInt(document.getElementById(`home-${matchId}`)?.value || '0');
+        const ai = parseInt(document.getElementById(`away-${matchId}`)?.value || '0');
+        pendingPredictions[matchId] = {h: hi, a: ai, w: side};
+      }
+      savePendingToStorage();
+      updateConfirmBar();
+      updateScoreInputBorder(matchId);
+      updateSaveBtn(matchId);
     }
 
     async function saveOne(matchId) {
@@ -313,7 +353,7 @@
 
       const r = await api('/api/predictions/batch', {
         method: 'POST',
-        body: JSON.stringify({ group_id: groupId, predictions: [{ match_id: matchId, home_score: scoreObj.h, away_score: scoreObj.a }] })
+        body: JSON.stringify({ group_id: groupId, predictions: [{ match_id: matchId, home_score: scoreObj.h, away_score: scoreObj.a, winner: scoreObj.w || null }] })
       });
 
       if (!r || !r.ok) {
@@ -322,7 +362,7 @@
         return;
       }
 
-      const result = scoreObj.h > scoreObj.a ? 'HOME' : scoreObj.h < scoreObj.a ? 'AWAY' : 'DRAW';
+      const result = scoreObj.w || (scoreObj.h > scoreObj.a ? 'HOME' : scoreObj.h < scoreObj.a ? 'AWAY' : 'DRAW');
       myPredictions[matchId] = { match_id: matchId, prediction: result, predicted_home: scoreObj.h, predicted_away: scoreObj.a, is_correct: null, is_exact: null };
       delete pendingPredictions[matchId];
       localStorage.setItem(STORAGE_KEY, JSON.stringify(pendingPredictions));
@@ -356,15 +396,19 @@
         const mid = parseInt(idStr);
         const m = groupMatches.find(x => x.id === mid);
         if (!m) return '';
-        const {h, a} = scoreObj;
-        const result = h > a ? 'HOME' : h < a ? 'AWAY' : 'DRAW';
+        const {h, a, w} = scoreObj;
+        const result = w || (h > a ? 'HOME' : h < a ? 'AWAY' : 'DRAW');
         const cls = result === 'HOME' ? 'pred-btn-home' : result === 'DRAW' ? 'pred-btn-draw' : 'pred-btn-away';
+        const winnerLabel = (w && h === a) ? `<div style="font-size:11px; color:#93c5fd; margin-top:2px;">${escHtml(w === 'HOME' ? m.home_team : m.away_team)} avanza</div>` : '';
         return `<div style="display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid #0f172a;">
           <div>
             <div style="font-size:13px; font-weight:600;">${escHtml(m.home_team)} vs ${escHtml(m.away_team)}</div>
             <div style="font-size:11px; color:#64748b;">${escHtml(fmtStage(m.stage))}</div>
           </div>
-          <span class="pred-badge ${cls}" style="flex-shrink:0; margin-left:10px; font-size:15px; padding:4px 14px;">${h} - ${a}</span>
+          <div style="text-align:right; flex-shrink:0; margin-left:10px;">
+            <span class="pred-badge ${cls}" style="font-size:15px; padding:4px 14px;">${h} - ${a}</span>
+            ${winnerLabel}
+          </div>
         </div>`;
       }).join('');
 
@@ -381,7 +425,8 @@
       const predictions = Object.entries(pendingPredictions).map(([id, scoreObj]) => ({
         match_id: parseInt(id),
         home_score: scoreObj.h,
-        away_score: scoreObj.a
+        away_score: scoreObj.a,
+        winner: scoreObj.w || null
       }));
       if (!predictions.length) return;
 
@@ -406,7 +451,7 @@
 
       // Mover pendientes a guardados
       Object.entries(pendingPredictions).forEach(([id, scoreObj]) => {
-        const result = scoreObj.h > scoreObj.a ? 'HOME' : scoreObj.h < scoreObj.a ? 'AWAY' : 'DRAW';
+        const result = scoreObj.w || (scoreObj.h > scoreObj.a ? 'HOME' : scoreObj.h < scoreObj.a ? 'AWAY' : 'DRAW');
         myPredictions[parseInt(id)] = {
           match_id: parseInt(id),
           prediction: result,
@@ -578,6 +623,11 @@
             const pendingH = pending !== undefined ? pending.h : (saved?.predicted_home ?? '');
             const pendingA = pending !== undefined ? pending.a : (saved?.predicted_away ?? '');
             const inputBorder = pending !== undefined ? '#3b82f6' : (saved ? '#22c55e' : '#334155');
+            const knockout = isKnockout(m.stage);
+            const showWinner = knockout && pendingH !== '' && pendingA !== '' && pendingH == pendingA;
+            const savedW = (saved?.predicted_home !== null && saved?.predicted_home === saved?.predicted_away && saved?.prediction !== 'DRAW') ? saved?.prediction : null;
+            const currentW = pending?.w ?? (showWinner ? savedW : null);
+            const needsWinner = showWinner && !currentW;
 
             bottomHtml = `
               <div id="pred-${m.id}" style="display:flex; align-items:center; justify-content:center; gap:10px; margin-top:14px;">
@@ -597,9 +647,24 @@
                     style="width:64px; text-align:center; font-size:26px; font-weight:800; background:#0f172a; border:2px solid ${inputBorder}; border-radius:10px; color:#f1f5f9; padding:8px 2px; outline:none;">
                 </div>
               </div>
+              ${knockout ? `
+              <div id="winner-${m.id}" style="display:${showWinner ? 'flex' : 'none'}; flex-direction:column; margin-top:12px; padding:10px; background:#0f172a; border-radius:10px; gap:8px;">
+                <div style="font-size:11px; color:#94a3b8; text-align:center; letter-spacing:.5px; text-transform:uppercase;">¿Quién avanza?</div>
+                <div style="display:flex; gap:8px;">
+                  <button id="winner-home-${m.id}" onclick="setWinner(${m.id}, 'HOME')"
+                    style="flex:1; background:${currentW === 'HOME' ? '#1e3a5f' : '#0f172a'}; border:2px solid ${currentW === 'HOME' ? '#3b82f6' : '#334155'}; border-radius:10px; padding:10px 6px; color:#f1f5f9; font-size:12px; font-weight:700; cursor:pointer; transition:all .15s; text-align:center;">
+                    ${hFlagBtn}<div style="margin-top:4px;">${escHtml(m.home_team)}</div>
+                  </button>
+                  <button id="winner-away-${m.id}" onclick="setWinner(${m.id}, 'AWAY')"
+                    style="flex:1; background:${currentW === 'AWAY' ? '#1e3a5f' : '#0f172a'}; border:2px solid ${currentW === 'AWAY' ? '#3b82f6' : '#334155'}; border-radius:10px; padding:10px 6px; color:#f1f5f9; font-size:12px; font-weight:700; cursor:pointer; transition:all .15s; text-align:center;">
+                    ${aFlagBtn}<div style="margin-top:4px;">${escHtml(m.away_team)}</div>
+                  </button>
+                </div>
+              </div>` : ''}
               <button id="save-btn-${m.id}" onclick="saveOne(${m.id})"
-                style="display:${pendingPredictions[m.id] !== undefined ? 'block' : 'none'}; width:100%; margin-top:12px; background:#16a34a; color:white; border:none; border-radius:10px; padding:11px; font-size:14px; font-weight:700; cursor:pointer;">
-                Guardar pronóstico
+                style="display:${pendingPredictions[m.id] !== undefined ? 'block' : 'none'}; width:100%; margin-top:12px; background:${needsWinner ? '#334155' : '#16a34a'}; color:white; border:none; border-radius:10px; padding:11px; font-size:14px; font-weight:700; cursor:pointer;"
+                ${needsWinner ? 'disabled' : ''}>
+                ${needsWinner ? 'Elegí quién avanza ↑' : 'Guardar pronóstico'}
               </button>`;
           } else {
             const groupPredsHtml = matchStarted ? renderGroupPreds(m.id, m.home_team, m.away_team) : '';

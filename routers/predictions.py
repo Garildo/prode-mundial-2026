@@ -17,6 +17,7 @@ class BatchPredictionItem(BaseModel):
     match_id: int
     home_score: int
     away_score: int
+    winner: str | None = None  # 'HOME' o 'AWAY' para empates en eliminatorias
 
 
 class BatchPredictionRequest(BaseModel):
@@ -68,7 +69,10 @@ def make_predictions_batch(
                 errors.append({"match_id": item.match_id, "error": "El partido está por comenzar"})
                 continue
 
-        result = _infer_result(item.home_score, item.away_score)
+        if item.home_score == item.away_score and item.winner in ('HOME', 'AWAY'):
+            result = item.winner
+        else:
+            result = _infer_result(item.home_score, item.away_score)
         existing = db.query(models.Prediction).filter(
             models.Prediction.user_id == current_user.id,
             models.Prediction.group_id == req.group_id,

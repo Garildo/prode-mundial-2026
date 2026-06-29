@@ -267,7 +267,9 @@ def _update_predictions_correctness(db: Session):
         for p in preds:
             p.is_correct = p.prediction == match.result
             if p.predicted_home is not None and match.home_score is not None:
-                p.is_exact = (p.predicted_home == match.home_score and
-                              p.predicted_away == match.away_score)
+                p.is_exact = p.is_correct and (
+                    p.predicted_home == match.home_score and
+                    p.predicted_away == match.away_score
+                )
 
     db.commit()
