@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -62,6 +62,11 @@ def make_predictions_batch(
             errors.append({"match_id": item.match_id, "error": "Partido ya terminó"})
             continue
 
+        if match.status == "SCHEDULED" and match.match_date:
+            match_dt = match.match_date if match.match_date.tzinfo else match.match_date.replace(tzinfo=timezone.utc)
+            if match_dt - now < timedelta(minutes=10):
+                errors.append({"match_id": item.match_id, "error": "El partido está por comenzar"})
+                continue
 
         result = _infer_result(item.home_score, item.away_score)
         existing = db.query(models.Prediction).filter(

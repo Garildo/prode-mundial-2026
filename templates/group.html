@@ -484,10 +484,16 @@
       preds.forEach(p => { myPredictions[p.match_id] = p; });
       groupPredictions = gpr ? await gpr.json() : {};
 
-      // Limpiar pendientes de partidos que ya empezaron o formato inválido
+      // Limpiar pendientes de partidos que ya empezaron, formato inválido, o dentro de 10 min
+      const nowMs = Date.now();
       groupMatches.forEach(m => {
         if (m.status !== 'SCHEDULED' && pendingPredictions[m.id]) {
           delete pendingPredictions[m.id];
+          return;
+        }
+        if (m.status === 'SCHEDULED' && m.match_date && pendingPredictions[m.id]) {
+          const matchTs = new Date(m.match_date + (m.match_date.endsWith('Z') ? '' : 'Z')).getTime();
+          if ((matchTs - nowMs) / 60000 < 10) delete pendingPredictions[m.id];
         }
       });
       // Limpiar entradas de formato viejo (string)
@@ -539,10 +545,13 @@
         html += `<div class="stage-header">📅 ${fmtDayHeader(day)}</div>`;
         byDay[day].forEach(m => {
           const pred = myPredictions[m.id];
-          const matchStarted = false;
-          const canPredict = m.status !== 'FINISHED';
           const isFinished = m.status === 'FINISHED';
           const isLive = m.status === 'LIVE';
+          const matchStarted = isFinished || isLive;
+          const nowTs = Date.now();
+          const matchTs = m.match_date ? new Date(m.match_date + (m.match_date.endsWith('Z') ? '' : 'Z')).getTime() : Infinity;
+          const nearlyStarting = m.status === 'SCHEDULED' && (matchTs - nowTs) / 60000 < 10;
+          const canPredict = !isFinished && !nearlyStarting;
 
           const score = isFinished
             ? `<div style="font-size:18px; font-weight:800; color:#f1f5f9; line-height:1;">${m.home_score} - ${m.away_score}</div>`
@@ -552,8 +561,8 @@
 
           const statusBadge = isLive
             ? '<span class="status-live">EN VIVO</span>'
-            : isFinished ? `<span class="status-finished">Final</span>`
-            : matchStarted ? '<span class="status-finished" style="background:#78350f; color:#fef3c7;">Cerrado</span>'
+            : isFinished ? '<span class="status-finished">Final</span>'
+            : nearlyStarting ? '<span class="status-finished" style="background:#78350f; color:#fef3c7; border-radius:4px; padding:2px 6px; font-size:11px; font-weight:700;">🔒 POR EMPEZAR</span>'
             : '';
 
           const cardBorder = pred?.is_correct === true ? 'border-color:#22c55e;'
@@ -594,7 +603,8 @@
               </button>`;
           } else {
             const groupPredsHtml = matchStarted ? renderGroupPreds(m.id, m.home_team, m.away_team) : '';
-            bottomHtml = `<div style="margin-top:10px;">${buildPredBadge(pred, m.home_team, m.away_team)}</div>${groupPredsHtml}`;
+            const lockMsg = nearlyStarting ? `<div style="font-size:12px; color:#94a3b8; margin-top:6px;">Pronósticos cerrados 10 min antes del inicio</div>` : '';
+            bottomHtml = `<div style="margin-top:10px;">${buildPredBadge(pred, m.home_team, m.away_team)}${lockMsg}</div>${groupPredsHtml}`;
           }
 
           html += `<div class="match-card" style="${cardBorder}">
