@@ -59,8 +59,8 @@ def make_predictions_batch(
             errors.append({"match_id": item.match_id, "error": "Partido no encontrado"})
             continue
 
-        if match.status == "FINISHED":
-            errors.append({"match_id": item.match_id, "error": "Partido ya terminó"})
+        if match.status in ("FINISHED", "LIVE"):
+            errors.append({"match_id": item.match_id, "error": "Partido ya comenzó"})
             continue
 
         if match.status == "SCHEDULED" and match.match_date:
