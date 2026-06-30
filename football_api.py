@@ -233,14 +233,17 @@ async def sync_matches(db: Session) -> dict:
             db_pen_away = penalty_home_api if inverted else penalty_away_api
             db_result = determine_result(db_home_score, db_away_score, db_pen_home, db_pen_away) if status == "FINISHED" and db_home_score is not None else None
 
+            # No pisar scores de partidos ya FINISHED con datos en DB (la API a veces devuelve datos incorrectos)
+            already_finished = existing.status == "FINISHED" and existing.home_score is not None
             existing.api_id = api_id
             existing.match_date = match_date
             existing.status = status
-            existing.home_score = db_home_score
-            existing.away_score = db_away_score
-            existing.penalty_home = db_pen_home
-            existing.penalty_away = db_pen_away
-            existing.result = db_result
+            if not already_finished:
+                existing.home_score = db_home_score
+                existing.away_score = db_away_score
+                existing.penalty_home = db_pen_home
+                existing.penalty_away = db_pen_away
+                existing.result = db_result
             existing.updated_at = datetime.utcnow()
         elif m_stage_raw != "GROUP_STAGE":
             # Solo insertar partidos que NO son de fase de grupos (eliminatorias)
