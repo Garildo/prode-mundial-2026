@@ -56,6 +56,8 @@ class Match(Base):
     result = Column(String, nullable=True)         # HOME, AWAY, DRAW
     home_score = Column(Integer, nullable=True)
     away_score = Column(Integer, nullable=True)
+    penalty_home = Column(Integer, nullable=True)
+    penalty_away = Column(Integer, nullable=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     predictions = relationship("Prediction", back_populates="match")

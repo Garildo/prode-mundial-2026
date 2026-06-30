@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -26,6 +27,8 @@ def _fmt(m: models.Match) -> dict:
         "result": m.result,
         "home_score": m.home_score,
         "away_score": m.away_score,
+        "penalty_home": m.penalty_home,
+        "penalty_away": m.penalty_away,
     }
 
 
@@ -94,6 +97,8 @@ def create_match(
 class SetResultRequest(BaseModel):
     home_score: int
     away_score: int
+    penalty_home: Optional[int] = None
+    penalty_away: Optional[int] = None
 
 
 @router.put("/{match_id}/result")
@@ -109,7 +114,9 @@ def set_result(
 
     m.home_score = req.home_score
     m.away_score = req.away_score
-    m.result = football_api.determine_result(req.home_score, req.away_score)
+    m.penalty_home = req.penalty_home
+    m.penalty_away = req.penalty_away
+    m.result = football_api.determine_result(req.home_score, req.away_score, req.penalty_home, req.penalty_away)
     m.status = "FINISHED"
     m.updated_at = datetime.utcnow()
     db.commit()

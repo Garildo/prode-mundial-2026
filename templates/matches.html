@@ -159,8 +159,11 @@
             ? '<span class="status-finished">Final</span>'
             : '<span class="status-scheduled">Próximo</span>';
 
+          const penStr = (isFinished && m.penalty_home != null)
+            ? `<div style="font-size:10px; color:#f59e0b; font-weight:700; margin-top:3px; letter-spacing:.3px;">Pen: ${m.penalty_home} - ${m.penalty_away}</div>`
+            : '';
           const score = isFinished
-            ? `<span style="font-size:18px; font-weight:800; color:#f1f5f9;">${m.home_score} - ${m.away_score}</span>`
+            ? `<div style="text-align:center;"><span style="font-size:18px; font-weight:800; color:#f1f5f9;">${m.home_score} - ${m.away_score}</span>${penStr}</div>`
             : isLive
             ? `<span style="font-size:18px; font-weight:800; color:#dc2626;">${m.home_score ?? 0} - ${m.away_score ?? 0}</span>`
             : '<span style="color:#475569; font-size:12px; font-weight:600;">vs</span>';
